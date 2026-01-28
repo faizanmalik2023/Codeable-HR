@@ -22,6 +22,8 @@ import {
   BarChart3,
   Award,
   BookOpen,
+  MessageSquare,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -63,6 +65,16 @@ const navItems: NavItem[] = [
     href: "/policies",
     icon: BookOpen,
   },
+  {
+    title: "Talk to HR",
+    href: "/my-issues",
+    icon: MessageSquare,
+  },
+  {
+    title: "My Time",
+    href: "/time",
+    icon: Clock,
+  },
 
   // Manager only - HR manages all personnel, not a specific team
   {
@@ -76,6 +88,12 @@ const navItems: NavItem[] = [
     title: "Leave Approvals",
     href: "/team/approvals",
     icon: UserCheck,
+    roles: ["manager"],
+  },
+  {
+    title: "Team Time",
+    href: "/team/time",
+    icon: Clock,
     roles: ["manager"],
   },
 
@@ -117,11 +135,17 @@ const navItems: NavItem[] = [
     icon: BookOpen,
     minRole: "hr",
   },
+  {
+    title: "Company Time",
+    href: "/hr/time",
+    icon: Clock,
+    minRole: "hr",
+  },
 
   // Admin only
   {
-    title: "Admin",
-    href: "/admin",
+    title: "Roles",
+    href: "/admin/roles",
     icon: Shield,
     roles: ["admin"],
     divider: "System",

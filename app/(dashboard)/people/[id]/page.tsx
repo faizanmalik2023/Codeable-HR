@@ -23,6 +23,9 @@ import {
   Trash2,
   Sparkles,
   Award,
+  Shield,
+  Check,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,6 +133,25 @@ const relatedIssues = [
   { id: "i1", title: "Equipment request", status: "resolved", date: "2023-10-15" },
 ];
 
+// Available roles for assignment
+interface AvailableRole {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+}
+
+const availableRoles: AvailableRole[] = [
+  { id: "employee", name: "Employee", description: "Standard access for all team members", color: "text-primary" },
+  { id: "manager", name: "Manager", description: "Team leads who approve leaves and review EODs", color: "text-accent" },
+  { id: "hr", name: "HR", description: "Human resources with people operations access", color: "text-warning" },
+  { id: "admin", name: "Admin", description: "Full system access including settings and roles", color: "text-destructive" },
+  { id: "finance", name: "Finance", description: "Access to payroll and financial reports", color: "text-success" },
+];
+
+// Employee's current roles
+const initialEmployeeRoles = ["employee"];
+
 const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "Overview", icon: <User className="h-4 w-4" /> },
   { id: "leaves", label: "Leaves", icon: <Calendar className="h-4 w-4" /> },
@@ -154,6 +176,12 @@ export default function EmployeeProfilePage() {
   const [isAddPromotionOpen, setIsAddPromotionOpen] = React.useState(false);
   const [editingPromotion, setEditingPromotion] = React.useState<Promotion | null>(null);
   const [deletingPromotion, setDeletingPromotion] = React.useState<Promotion | null>(null);
+
+  // Roles state (for admin role assignment)
+  const [employeeRoles, setEmployeeRoles] = React.useState<string[]>(initialEmployeeRoles);
+  const [isRoleModalOpen, setIsRoleModalOpen] = React.useState(false);
+  const [pendingRoles, setPendingRoles] = React.useState<string[]>([]);
+  const [isSavingRoles, setIsSavingRoles] = React.useState(false);
 
   // Form state
   const [formDesignation, setFormDesignation] = React.useState("");
@@ -272,6 +300,31 @@ export default function EmployeeProfilePage() {
 
   // Get current role for context
   const currentRole = promotions.length > 0 ? promotions[0].toRole : employee.role;
+
+  // Role management functions
+  const openRoleModal = () => {
+    setPendingRoles([...employeeRoles]);
+    setIsRoleModalOpen(true);
+  };
+
+  const closeRoleModal = () => {
+    setIsRoleModalOpen(false);
+    setPendingRoles([]);
+  };
+
+  const togglePendingRole = (roleId: string) => {
+    setPendingRoles((prev) =>
+      prev.includes(roleId) ? prev.filter((r) => r !== roleId) : [...prev, roleId]
+    );
+  };
+
+  const handleSaveRoles = async () => {
+    setIsSavingRoles(true);
+    await new Promise((r) => setTimeout(r, 800));
+    setEmployeeRoles(pendingRoles);
+    setIsSavingRoles(false);
+    closeRoleModal();
+  };
 
   return (
     <StaggerContainer className="space-y-6">
@@ -419,6 +472,72 @@ export default function EmployeeProfilePage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Roles & Access Section (Admin Only) */}
+            <Card className="mt-6">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-foreground-muted" />
+                  <CardTitle className="text-base">Roles & Access</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={openRoleModal} className="gap-2">
+                  <Edit className="h-4 w-4" />
+                  Manage Roles
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-foreground-muted mb-4">
+                  Roles determine what this person can see and do in the system.
+                </p>
+                {employeeRoles.length === 0 ? (
+                  <p className="text-sm text-foreground-muted italic">No roles assigned yet.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {employeeRoles.map((roleId) => {
+                      const role = availableRoles.find((r) => r.id === roleId);
+                      if (!role) return null;
+                      return (
+                        <div
+                          key={role.id}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border",
+                            role.color
+                          )}
+                        >
+                          <Shield className="h-4 w-4" />
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{role.name}</p>
+                            <p className="text-xs text-foreground-muted">{role.description}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Impact Summary */}
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-xs font-medium text-foreground-muted mb-2">This person can:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {employeeRoles.includes("employee") && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary-muted/30 text-primary">Submit EODs</span>
+                    )}
+                    {employeeRoles.includes("employee") && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary-muted/30 text-primary">Apply for leave</span>
+                    )}
+                    {employeeRoles.includes("manager") && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent-muted/30 text-accent">Approve team leaves</span>
+                    )}
+                    {employeeRoles.includes("hr") && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-warning-muted/30 text-warning">Manage employees</span>
+                    )}
+                    {employeeRoles.includes("admin") && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-destructive-muted/30 text-destructive">Full access</span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </StaggerItem>
         )}
 
@@ -900,6 +1019,87 @@ export default function EmployeeProfilePage() {
         variant="destructive"
         isLoading={isSubmitting}
       />
+
+      {/* Role Assignment Modal */}
+      <Modal
+        open={isRoleModalOpen}
+        onClose={closeRoleModal}
+        title="Manage Roles"
+        description={`Select roles for ${employee.name}`}
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-foreground-muted">
+            A person can have multiple roles. Changes take effect immediately after saving.
+          </p>
+
+          {/* Role Selection */}
+          <div className="space-y-2">
+            {availableRoles.map((role) => {
+              const isSelected = pendingRoles.includes(role.id);
+              return (
+                <button
+                  key={role.id}
+                  onClick={() => togglePendingRole(role.id)}
+                  className={cn(
+                    "w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
+                    isSelected
+                      ? "bg-primary-muted/30 border-primary/30"
+                      : "bg-secondary/30 border-border hover:border-primary/20"
+                  )}
+                >
+                  <div className={cn(
+                    "h-5 w-5 rounded border-2 flex items-center justify-center transition-colors shrink-0",
+                    isSelected ? "bg-primary border-primary" : "border-border"
+                  )}>
+                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                  </div>
+                  <div className={cn("flex-1", role.color)}>
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      <p className="font-medium text-foreground">{role.name}</p>
+                    </div>
+                    <p className="text-xs text-foreground-muted">{role.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Changes Summary */}
+          {JSON.stringify(pendingRoles.sort()) !== JSON.stringify(employeeRoles.sort()) && (
+            <div className="p-3 rounded-lg bg-warning-muted/20 border border-warning/10">
+              <p className="text-sm text-foreground">
+                <span className="font-medium">Changes:</span>{" "}
+                {pendingRoles.length > employeeRoles.length
+                  ? `Adding ${pendingRoles.filter((r) => !employeeRoles.includes(r)).map((r) => availableRoles.find((ar) => ar.id === r)?.name).join(", ")}`
+                  : pendingRoles.length < employeeRoles.length
+                  ? `Removing ${employeeRoles.filter((r) => !pendingRoles.includes(r)).map((r) => availableRoles.find((ar) => ar.id === r)?.name).join(", ")}`
+                  : "Role changes"}
+              </p>
+            </div>
+          )}
+
+          {pendingRoles.length === 0 && (
+            <p className="text-sm text-destructive">
+              At least one role must be selected.
+            </p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1" onClick={closeRoleModal}>
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleSaveRoles}
+              disabled={pendingRoles.length === 0 || isSavingRoles}
+            >
+              {isSavingRoles ? "Saving..." : "Save Roles"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </StaggerContainer>
   );
 }
