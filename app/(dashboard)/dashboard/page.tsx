@@ -31,6 +31,7 @@ import { QuickActionCard } from "@/components/shared/quick-action-card";
 import { ActivityItem } from "@/components/shared/activity-item";
 import { StaggerContainer, StaggerItem } from "@/components/animations/fade-in";
 import { PeopleSnapshot, IssuesInboxWidget } from "@/components/hr";
+import { ClockWidget } from "@/components/time";
 import { getGreeting, cn } from "@/lib/utils";
 import { useAuthStore, hasRole } from "@/stores/auth-store";
 
@@ -265,6 +266,32 @@ export default function DashboardPage() {
         </div>
       </StaggerItem>
 
+      {/* Clock In/Out Widget - Shows for all employees */}
+      <StaggerItem>
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary-muted">
+                <Clock className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium text-foreground">Time Tracking</h3>
+                <p className="text-sm text-foreground-muted">Track your working hours</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <ClockWidget variant="compact" />
+              <Link href="/time">
+                <Button variant="ghost" size="sm" className="gap-1 text-primary">
+                  View Hours
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      </StaggerItem>
+
       {/* Manager Section - Team Overview (shown only to managers+) */}
       {isManager && (
         <StaggerItem>
@@ -469,12 +496,13 @@ export default function DashboardPage() {
                 icon={Calendar}
               />
             </Link>
-            <QuickActionCard
-              title="Raise HR Issue"
-              description="Report a concern confidentially"
-              icon={MessageSquare}
-              onClick={() => {}}
-            />
+            <Link href="/my-issues/new">
+              <QuickActionCard
+                title="Talk to HR"
+                description="Share a concern or ask a question"
+                icon={MessageSquare}
+              />
+            </Link>
           </div>
         </div>
       </StaggerItem>
