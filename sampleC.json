@@ -1,0 +1,24 @@
+{
+  "employee": { "fullName": "Muhammad Abdul Rahman Al-Farooqi", "designation": "Principal Engineering Manager, Platform", "employmentType": "contract", "joinedAt": "2019-11-15T00:00:00.000Z" },
+  "slip": { "month": 12, "year": 2026, "grossAmount": 1875000, "netAmount": 1612500 },
+  "incomeRows": [
+    { "name": "Basic Salary",                  "amount": 1500000 },
+    { "name": "Mobile Allowance",              "amount": 15000   },
+    { "name": "Travel Allowance",              "amount": 60000   },
+    { "name": "Commission",                    "amount": 200000  },
+    { "name": "Bonus",                         "amount": 100000  },
+    { "name": "Reimbursement",                 "amount": 0       },
+    { "name": "Other",                         "amount": 0       },
+    { "name": "Project Completion Incentive",  "amount": 0       }
+  ],
+  "deductionRows": [
+    { "name": "Income Tax",         "amount": 225000 },
+    { "name": "Tax Adjustments",    "amount": 0      },
+    { "name": "Provident Fund",     "amount": 37500  },
+    { "name": "Loan",               "amount": 0      },
+    { "name": "Unpaid Leave",       "amount": 0      },
+    { "name": "Other",              "amount": 0      },
+    { "name": "Equipment Recovery", "amount": 0      }
+  ],
+  "branding": { "name": "Codeable", "address": "92 B, Commercial Broadway, Ph. 8, Lahore, Punjab, PK - 53101", "phone": "+92 306 85555 81", "supportEmail": "support@gocodeable.com" }
+}

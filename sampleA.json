@@ -1,0 +1,22 @@
+{
+  "employee": { "fullName": "Ayesha Khan", "designation": "Senior Software Engineer", "employmentType": "full_time", "joinedAt": "2023-04-01T00:00:00.000Z" },
+  "slip": { "month": 6, "year": 2026, "grossAmount": 250000, "netAmount": 232500 },
+  "incomeRows": [
+    { "name": "Basic Salary",      "amount": 200000 },
+    { "name": "Mobile Allowance",  "amount": 5000   },
+    { "name": "Travel Allowance",  "amount": 10000  },
+    { "name": "Commission",        "amount": 0      },
+    { "name": "Bonus",             "amount": 35000  },
+    { "name": "Reimbursement",     "amount": 0      },
+    { "name": "Other",             "amount": 0      }
+  ],
+  "deductionRows": [
+    { "name": "Income Tax",       "amount": 12500 },
+    { "name": "Tax Adjustments",  "amount": 0     },
+    { "name": "Provident Fund",   "amount": 5000  },
+    { "name": "Loan",             "amount": 0     },
+    { "name": "Unpaid Leave",     "amount": 0     },
+    { "name": "Other",            "amount": 0     }
+  ],
+  "branding": { "name": "Codeable", "address": "92 B, Commercial Broadway, Ph. 8, Lahore, Punjab, PK - 53101", "phone": "+92 306 85555 81", "supportEmail": "support@gocodeable.com" }
+}

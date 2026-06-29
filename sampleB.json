@@ -1,0 +1,22 @@
+{
+  "employee": { "fullName": "Bilal Ahmed", "designation": null, "employmentType": "intern", "joinedAt": null },
+  "slip": { "month": 2, "year": 2026, "grossAmount": 50000, "netAmount": 45000 },
+  "incomeRows": [
+    { "name": "Basic Salary",      "amount": 50000 },
+    { "name": "Mobile Allowance",  "amount": 0     },
+    { "name": "Travel Allowance",  "amount": 0     },
+    { "name": "Commission",        "amount": 0     },
+    { "name": "Bonus",             "amount": 0     },
+    { "name": "Reimbursement",     "amount": 0     },
+    { "name": "Other",             "amount": 0     }
+  ],
+  "deductionRows": [
+    { "name": "Income Tax",       "amount": 0    },
+    { "name": "Tax Adjustments",  "amount": 0    },
+    { "name": "Provident Fund",   "amount": 0    },
+    { "name": "Loan",             "amount": 0    },
+    { "name": "Unpaid Leave",     "amount": 5000 },
+    { "name": "Other",            "amount": 0    }
+  ],
+  "branding": { "name": "Codeable", "address": "92 B, Commercial Broadway, Ph. 8, Lahore, Punjab, PK - 53101", "phone": "+92 306 85555 81", "supportEmail": "support@gocodeable.com" }
+}
