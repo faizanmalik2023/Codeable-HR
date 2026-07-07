@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuthStore, UserRole, hasRole, hasAnyRole } from "@/stores/auth-store";
+import { useTicketing } from "@/lib/ticketing/use-ticketing";
 
 interface NavItem {
   title: string;
@@ -38,6 +39,9 @@ interface NavItem {
   roles?: UserRole[];
   // Or require minimum role level
   minRole?: UserRole;
+  // Ticketing feature flag (resolved server-side by the ticketing backend);
+  // "feature_admin" means the connected user is on the admin allowlist
+  ticketingFeature?: string;
   // Section divider before this item
   divider?: string;
 }
@@ -150,6 +154,37 @@ const navItems: NavItem[] = [
     roles: ["admin"],
     divider: "System",
   },
+
+  // Engineering tools — gated by ticketing-backend feature flags, not HR
+  // roles. Items appear only after connecting a ticketing access token.
+  {
+    title: "Generate Tickets",
+    href: "/generate-tickets",
+    icon: Sparkles,
+    ticketingFeature: "srs_generation",
+    divider: "Engineering",
+  },
+  {
+    title: "Velocity",
+    href: "/velocity",
+    icon: BarChart3,
+    ticketingFeature: "velocity_stats",
+  },
+  {
+    title: "Feature Access",
+    href: "/feature-access",
+    icon: Shield,
+    ticketingFeature: "feature_admin",
+  },
+  // Entry point while no ticketing token is connected; replaced by the
+  // entitled items above once connected
+  {
+    title: "Connect Tickets",
+    href: "/generate-tickets",
+    icon: TrendingUp,
+    ticketingFeature: "__connect",
+    divider: "Engineering",
+  },
 ];
 
 const bottomNavItems: NavItem[] = [
@@ -169,9 +204,18 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const userRole = user?.role || "employee";
+  const ticketing = useTicketing();
 
-  // Filter nav items based on user role
+  // Filter nav items based on user role / ticketing entitlements
   const visibleNavItems = navItems.filter((item) => {
+    if (item.ticketingFeature) {
+      if (item.ticketingFeature === "__connect") return !ticketing.connected;
+      if (!ticketing.connected) return false;
+      if (item.ticketingFeature === "feature_admin") {
+        return ticketing.isFeatureAdmin;
+      }
+      return ticketing.features.includes(item.ticketingFeature);
+    }
     if (item.roles) {
       return hasAnyRole(userRole, item.roles);
     }
