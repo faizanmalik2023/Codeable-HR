@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Sparkles,
+  TicketPlus,
   Paperclip,
   X,
   CheckCircle2,
@@ -310,7 +310,7 @@ export default function GenerateTicketsPage() {
               )}
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button onClick={handleGenerate} disabled={!canGenerate} className="gap-2">
-                <Sparkles className="h-4 w-4" />
+                <TicketPlus className="h-4 w-4" />
                 {generating ? "Generating…" : "Generate tickets"}
               </Button>
             </div>
