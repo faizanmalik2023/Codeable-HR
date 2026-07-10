@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  TicketPlus,
   ClipboardCheck,
   UserCheck,
   Building2,
@@ -160,7 +161,7 @@ const navItems: NavItem[] = [
   {
     title: "Generate Tickets",
     href: "/generate-tickets",
-    icon: Sparkles,
+    icon: TicketPlus,
     ticketingFeature: "srs_generation",
     divider: "Engineering",
   },
