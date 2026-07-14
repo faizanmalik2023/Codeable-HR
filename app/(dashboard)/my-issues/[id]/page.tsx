@@ -1,473 +1,302 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowLeft,
-  Shield,
-  Lock,
-  Users,
-  Clock,
-  CheckCircle2,
-  MessageSquare,
-  Send,
-  Paperclip,
-  FileText,
-  X,
-  MoreHorizontal,
-  User,
-} from "lucide-react";
+import { useParams } from "next/navigation";
+import { Clock, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { StaggerContainer, StaggerItem } from "@/components/animations/fade-in";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate, cn } from "@/lib/utils";
+import { PageHeader } from "@/components/shared/page-header";
+import { ErrorState } from "@/components/ui/empty-state";
+import { useEnums, toOptions } from "@/lib/api/enums";
+import {
+  IssueStatusEnum,
+  IssuePriorityEnum,
+  ISSUE_CATEGORY_LABELS,
+} from "@/lib/enums";
+import { formatOrdinalDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import type { EmployeeRef, IssueMessage, IssueModel } from "@/types";
+import { useIssueThread } from "./use-issue-thread";
 
-// Types
-type IssueStatus = "open" | "in_progress" | "resolved";
-type IssueType = "Conflict" | "Concern" | "Policy Question" | "Other";
-type IssueVisibility = "hr_only" | "hr_manager";
-
-interface Message {
-  id: string;
-  sender: {
-    name: string;
-    role: "employee" | "hr";
-    avatar?: string;
-  };
-  content: string;
-  createdAt: string;
-  attachments?: { name: string; size: string }[];
-}
-
-interface IssueDetail {
-  id: string;
-  title: string;
-  type: IssueType;
-  visibility: IssueVisibility;
-  status: IssueStatus;
-  createdAt: string;
-  updatedAt: string;
-  messages: Message[];
-}
-
-// Mock data
-const mockIssue: IssueDetail = {
-  id: "1",
-  title: "Question about remote work policy",
-  type: "Policy Question",
-  visibility: "hr_only",
-  status: "in_progress",
-  createdAt: "2024-01-15T10:00:00",
-  updatedAt: "2024-01-20T14:30:00",
-  messages: [
-    {
-      id: "m1",
-      sender: { name: "You", role: "employee" },
-      content: "Hi, I wanted to ask about the remote work policy. I'm planning to work from another city for a few weeks next month to be closer to family. Is this allowed under our current policy? I want to make sure I follow the proper process.",
-      createdAt: "2024-01-15T10:00:00",
-    },
-    {
-      id: "m2",
-      sender: { name: "Sarah Chen", role: "hr", avatar: "/avatars/sarah.jpg" },
-      content: "Hi! Thanks for reaching out about this. Yes, our policy does allow for temporary remote work from different locations. There are a few things to keep in mind:\n\n1. Please notify your manager at least 2 weeks in advance\n2. Ensure you have reliable internet access\n3. Be available during core hours (10am-3pm in your home timezone)\n\nWould you like me to send you the full remote work guidelines document?",
-      createdAt: "2024-01-16T09:30:00",
-    },
-    {
-      id: "m3",
-      sender: { name: "You", role: "employee" },
-      content: "That's really helpful, thank you! Yes, please send the guidelines. Also, do I need to fill out any formal request form?",
-      createdAt: "2024-01-16T14:15:00",
-    },
-    {
-      id: "m4",
-      sender: { name: "Sarah Chen", role: "hr", avatar: "/avatars/sarah.jpg" },
-      content: "Thanks for clarifying. I've attached the updated policy document for your reference. For temporary relocations under 30 days, you don't need a formal request — just an email to your manager with the dates is sufficient.\n\nLet me know if you have any other questions!",
-      createdAt: "2024-01-20T14:30:00",
-      attachments: [
-        { name: "Remote_Work_Policy_2024.pdf", size: "245 KB" },
-      ],
-    },
-  ],
-};
-
-const statusConfig: Record<IssueStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  open: {
-    label: "Waiting for response",
-    color: "text-primary",
-    bg: "bg-primary-muted",
-    icon: <Clock className="h-4 w-4" />
-  },
-  in_progress: {
-    label: "In conversation",
-    color: "text-success",
-    bg: "bg-success-muted",
-    icon: <MessageSquare className="h-4 w-4" />
-  },
-  resolved: {
-    label: "Resolved",
-    color: "text-foreground-muted",
-    bg: "bg-secondary",
-    icon: <CheckCircle2 className="h-4 w-4" />
-  },
-};
-
-export default function IssueDetailPage() {
+export default function IssueThreadPage() {
   const params = useParams();
-  const router = useRouter();
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [issue, setIssue] = React.useState<IssueDetail | null>(null);
-  const [replyText, setReplyText] = React.useState("");
-  const [isSending, setIsSending] = React.useState(false);
-  const [showOptions, setShowOptions] = React.useState(false);
+  const id = String(params.id);
+  const { query, issue, send, retry } = useIssueThread(id);
 
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-
-  // Load issue data
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setIssue(mockIssue);
-      setIsLoading(false);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [params.id]);
-
-  // Scroll to bottom on new messages
-  React.useEffect(() => {
-    if (!isLoading) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [issue?.messages, isLoading]);
-
-  const handleSendReply = async () => {
-    if (!replyText.trim() || !issue) return;
-
-    setIsSending(true);
-
-    // Simulate sending
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    const newMessage: Message = {
-      id: `m${Date.now()}`,
-      sender: { name: "You", role: "employee" },
-      content: replyText,
-      createdAt: new Date().toISOString(),
-    };
-
-    setIssue({
-      ...issue,
-      messages: [...issue.messages, newMessage],
-      status: "open", // Waiting for HR response now
-    });
-
-    setReplyText("");
-    setIsSending(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      handleSendReply();
-    }
-  };
-
-  if (isLoading) {
+  if (query.isLoading && !issue) {
     return (
-      <StaggerContainer className="space-y-6 max-w-3xl mx-auto">
-        <StaggerItem>
-          <div className="flex items-center gap-4">
-            <Skeleton variant="circular" className="h-10 w-10" />
-            <div className="space-y-2">
-              <Skeleton variant="text" className="h-6 w-64" />
-              <Skeleton variant="text" className="h-4 w-40" />
-            </div>
-          </div>
-        </StaggerItem>
-        <StaggerItem>
-          <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex gap-3">
-                <Skeleton variant="circular" className="h-8 w-8" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton variant="text" className="h-4 w-24" />
-                  <Skeleton variant="default" className="h-24 w-full rounded-xl" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </StaggerItem>
-      </StaggerContainer>
-    );
-  }
-
-  if (!issue) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-foreground-muted">Issue not found</p>
-        <Link href="/my-issues">
-          <Button variant="ghost" className="mt-4">
-            Go back
-          </Button>
-        </Link>
+      <div className="mx-auto max-w-3xl space-y-6">
+        <PageHeader title="Issue" back />
+        <Skeleton className="h-28 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-20 w-2/3" />
+          <Skeleton className="ml-auto h-20 w-2/3" />
+          <Skeleton className="h-20 w-2/3" />
+        </div>
       </div>
     );
   }
 
-  const isResolved = issue.status === "resolved";
+  if ((query.isError && !issue) || !issue) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <PageHeader title="Issue" back />
+        <ErrorState
+          message={query.error instanceof Error ? query.error.message : undefined}
+          onRetry={() => query.refetch()}
+        />
+      </div>
+    );
+  }
+
+  return <IssueThread issue={issue} onSend={send} onRetry={retry} />;
+}
+
+function IssueThread({
+  issue,
+  onSend,
+  onRetry,
+}: {
+  issue: IssueModel;
+  onSend: (message: string) => void;
+  onRetry: (message: IssueMessage) => void;
+}) {
+  const enums = useEnums();
+  const [draft, setDraft] = React.useState("");
+  const bottomRef = React.useRef<HTMLDivElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const messages = issue.messages ?? [];
+
+  const autoGrow = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  };
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const categoryLabel = React.useMemo(() => {
+    const opts = toOptions(enums.data?.ticket_category, ISSUE_CATEGORY_LABELS);
+    return (
+      opts.find((o) => o.value === issue.category)?.label ??
+      ISSUE_CATEGORY_LABELS[issue.category as keyof typeof ISSUE_CATEGORY_LABELS] ??
+      issue.category
+    );
+  }, [enums.data, issue.category]);
+
+  const locked = issue.status === "resolved" || issue.status === "closed";
+  const grouped = groupByDate(messages);
+
+  const handleSend = () => {
+    if (!draft.trim()) return;
+    onSend(draft);
+    setDraft("");
+    const el = textareaRef.current;
+    if (el) el.style.height = "auto";
+  };
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-8rem)]">
-      {/* Header */}
-      <div className="flex items-start gap-4 pb-4 border-b border-border mb-4">
-        <Link href="/my-issues">
-          <Button variant="ghost" size="icon" className="rounded-full shrink-0">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-semibold text-foreground line-clamp-2">
-            {issue.title}
-          </h1>
-          <div className="flex flex-wrap items-center gap-2 mt-1 text-sm">
-            <Badge variant="muted">{issue.type}</Badge>
-            <span className={cn(
-              "px-2 py-0.5 rounded-full text-xs flex items-center gap-1",
-              statusConfig[issue.status].bg,
-              statusConfig[issue.status].color
-            )}>
-              {statusConfig[issue.status].icon}
-              {statusConfig[issue.status].label}
-            </span>
-            <span className="text-foreground-subtle flex items-center gap-1">
-              {issue.visibility === "hr_only" ? (
-                <>
-                  <Lock className="h-3 w-3" />
-                  Only HR
-                </>
-              ) : (
-                <>
-                  <Users className="h-3 w-3" />
-                  HR + Manager
-                </>
-              )}
-            </span>
-          </div>
-        </div>
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full"
-            onClick={() => setShowOptions(!showOptions)}
-          >
-            <MoreHorizontal className="h-5 w-5" />
-          </Button>
-          <AnimatePresence>
-            {showOptions && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px] z-10"
-              >
-                {!isResolved && (
-                  <button
-                    onClick={() => {
-                      setIssue({ ...issue, status: "resolved" });
-                      setShowOptions(false);
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-secondary transition-colors flex items-center gap-2"
-                  >
-                    <CheckCircle2 className="h-4 w-4 text-success" />
-                    Mark as resolved
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowOptions(false)}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-secondary transition-colors text-foreground-muted"
-                >
-                  Cancel
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 pb-28">
+      <PageHeader title="Issue" back />
 
-      {/* Messages Thread */}
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4">
-        {/* Timestamp */}
-        <div className="text-center">
-          <span className="text-xs text-foreground-subtle bg-secondary/50 px-3 py-1 rounded-full">
-            Started {formatDate(new Date(issue.createdAt))}
-          </span>
-        </div>
-
-        {issue.messages.map((message, index) => {
-          const isEmployee = message.sender.role === "employee";
-          return (
-            <motion.div
-              key={message.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className={cn(
-                "flex gap-3",
-                isEmployee && "flex-row-reverse"
-              )}
-            >
-              {/* Avatar */}
-              <div className={cn(
-                "shrink-0",
-                isEmployee ? "hidden sm:block" : ""
-              )}>
-                {isEmployee ? (
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
-                ) : (
-                  <Avatar name={message.sender.name} size="sm" />
-                )}
-              </div>
-
-              {/* Message Bubble */}
-              <div className={cn(
-                "flex flex-col max-w-[80%]",
-                isEmployee ? "items-end" : "items-start"
-              )}>
-                {/* Sender info */}
-                <div className={cn(
-                  "flex items-center gap-2 mb-1",
-                  isEmployee && "flex-row-reverse"
-                )}>
-                  <span className="text-sm font-medium text-foreground">
-                    {message.sender.name}
-                  </span>
-                  {!isEmployee && (
-                    <Badge variant="muted" className="text-xs py-0">
-                      HR
-                    </Badge>
-                  )}
-                  <span className="text-xs text-foreground-subtle">
-                    {formatDate(new Date(message.createdAt))}
-                  </span>
-                </div>
-
-                {/* Content */}
-                <div className={cn(
-                  "p-4 rounded-2xl whitespace-pre-wrap text-sm",
-                  isEmployee
-                    ? "bg-primary text-primary-foreground rounded-tr-md"
-                    : "bg-secondary rounded-tl-md"
-                )}>
-                  {message.content}
-                </div>
-
-                {/* Attachments */}
-                {message.attachments && message.attachments.length > 0 && (
-                  <div className={cn(
-                    "mt-2 space-y-1",
-                    isEmployee && "items-end"
-                  )}>
-                    {message.attachments.map((attachment, i) => (
-                      <button
-                        key={i}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors text-sm"
-                      >
-                        <FileText className="h-4 w-4 text-primary" />
-                        <span className="text-foreground">{attachment.name}</span>
-                        <span className="text-foreground-subtle text-xs">{attachment.size}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Reply Input */}
-      {!isResolved ? (
-        <div className="pt-4 border-t border-border">
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <Textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Write a reply..."
-                rows={3}
-                className="resize-none"
-                disabled={isSending}
-              />
-              <div className="flex items-center justify-between mt-2">
-                <p className="text-xs text-foreground-subtle">
-                  Press ⌘+Enter to send
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    onClick={handleSendReply}
-                    disabled={!replyText.trim() || isSending}
-                    className="gap-2"
-                  >
-                    {isSending ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        >
-                          <Send className="h-4 w-4" />
-                        </motion.div>
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4" />
-                        Send
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="pt-4 border-t border-border">
-          <div className="flex items-center justify-center gap-3 py-4 bg-success-muted/30 rounded-xl">
-            <CheckCircle2 className="h-5 w-5 text-success" />
-            <span className="text-foreground">
-              This conversation has been resolved
-            </span>
-          </div>
-          <p className="text-center text-sm text-foreground-muted mt-3">
-            Need to follow up?{" "}
-            <Link href="/my-issues/new" className="text-primary hover:underline">
-              Start a new conversation
-            </Link>
+      {/* Header card */}
+      <Card className="space-y-3 p-5">
+        <h1 className="text-lg font-semibold text-foreground">{issue.title}</h1>
+        {issue.created_at && (
+          <p className="text-sm text-foreground-muted">
+            Created {formatOrdinalDate(issue.created_at)}
           </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={IssueStatusEnum.tone(issue.status)}>
+            {IssueStatusEnum.label(issue.status)}
+          </Badge>
+          <Badge variant={IssuePriorityEnum.tone(issue.priority)}>
+            {IssuePriorityEnum.label(issue.priority)}
+          </Badge>
+          <Badge variant="muted">{categoryLabel}</Badge>
         </div>
-      )}
+        {assignedName(issue.assigned_to) && (
+          <p className="text-sm text-foreground-muted">
+            Assigned to{" "}
+            <span className="font-medium text-foreground">
+              {assignedName(issue.assigned_to)}
+            </span>
+          </p>
+        )}
+      </Card>
 
-      {/* Privacy Footer */}
-      <div className="flex items-center justify-center gap-2 py-3 mt-2 text-xs text-foreground-subtle">
-        <Shield className="h-3 w-3" />
-        <span>
-          {issue.visibility === "hr_only"
-            ? "This conversation is private between you and HR"
-            : "This conversation is visible to you, HR, and your manager"}
-        </span>
+      {/* Thread */}
+      <div className="space-y-4">
+        {grouped.map((group) => (
+          <div key={group.label} className="space-y-4">
+            <div className="flex justify-center">
+              <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground-muted">
+                {group.label}
+              </span>
+            </div>
+            {group.messages.map((message, i) => (
+              <MessageBubble
+                key={message.id ?? `${group.label}-${i}`}
+                message={message}
+                onRetry={onRetry}
+              />
+            ))}
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Sticky footer */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-sm md:pl-[240px]">
+        <div className="mx-auto max-w-3xl p-4">
+          {locked ? (
+            <p className="rounded-[var(--radius-lg)] bg-secondary/60 px-4 py-3 text-center text-sm text-foreground-muted">
+              This issue has been {issue.status}. You cannot reply.
+            </p>
+          ) : (
+            <div className="flex items-end gap-3">
+              <Textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  autoGrow();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Write a reply…"
+                rows={1}
+                className="max-h-40 min-h-[44px]"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!draft.trim()}
+                size="icon"
+                aria-label="Send"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+function MessageBubble({
+  message,
+  onRetry,
+}: {
+  message: IssueMessage;
+  onRetry: (message: IssueMessage) => void;
+}) {
+  if (message.sender === "system") {
+    return (
+      <div className="flex justify-center">
+        <span className="max-w-[80%] rounded-full bg-secondary/50 px-3 py-1 text-center text-xs text-foreground-muted">
+          {message.content}
+        </span>
+      </div>
+    );
+  }
+
+  const own = message.sender === "user";
+  const sending = message.delivery === "sending";
+  const failed = message.delivery === "failed";
+
+  if (own) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <div
+          className={cn(
+            "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-primary px-4 py-2.5 text-sm text-primary-foreground",
+            sending && "opacity-60"
+          )}
+        >
+          {message.content}
+        </div>
+        {sending && (
+          <span className="flex items-center gap-1 text-xs text-foreground-subtle">
+            <Clock className="h-3 w-3" /> Sending…
+          </span>
+        )}
+        {failed && (
+          <button
+            type="button"
+            onClick={() => onRetry(message)}
+            className="text-xs font-medium text-destructive hover:underline"
+          >
+            Not sent · Tap to retry
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // HR message
+  return (
+    <div className="flex items-start gap-2.5">
+      {message.sender_avatar ? (
+        <Avatar size="sm" src={message.sender_avatar} name={message.sender_name} />
+      ) : (
+        <Avatar size="sm" name={message.sender_name ?? "HR"} />
+      )}
+      <div className="flex max-w-[80%] flex-col items-start gap-1">
+        <span className="text-xs font-medium text-foreground-muted">
+          {message.sender_name ?? "HR"}
+        </span>
+        <div className="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-secondary px-4 py-2.5 text-sm text-foreground">
+          {message.content}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- helpers ----------------------------- */
+
+function assignedName(assigned: EmployeeRef | string | undefined): string | null {
+  if (!assigned) return null;
+  if (typeof assigned === "string") return assigned;
+  return assigned.full_name ?? assigned.name ?? null;
+}
+
+function dateLabel(input: string | undefined): string {
+  if (!input) return "—";
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return "—";
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const same = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  if (same(d, today)) return "Today";
+  if (same(d, yesterday)) return "Yesterday";
+  return formatOrdinalDate(d);
+}
+
+function groupByDate(messages: IssueMessage[]): { label: string; messages: IssueMessage[] }[] {
+  const groups: { label: string; messages: IssueMessage[] }[] = [];
+  for (const message of messages) {
+    const label = dateLabel(message.created_at);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.messages.push(message);
+    else groups.push({ label, messages: [message] });
+  }
+  return groups;
 }

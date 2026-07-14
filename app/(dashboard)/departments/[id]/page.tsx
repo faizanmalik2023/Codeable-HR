@@ -1,715 +1,346 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
-  ArrowLeft,
   Building2,
   Users,
-  User,
-  Pencil,
-  Archive,
   UserCog,
-  MapPin,
-  Mail,
-  MoreHorizontal,
+  Pencil,
   UserMinus,
-  ChevronRight,
+  UserPlus,
+  Check,
+  X,
 } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Modal, ConfirmModal } from "@/components/ui/modal";
-import { StaggerContainer, StaggerItem } from "@/components/animations/fade-in";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState, ErrorState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
-
-// Types
-type EmployeeStatus = "active" | "on_leave" | "remote";
-
-interface Employee {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  status: EmployeeStatus;
-  location: string;
-  avatar?: string;
-}
-
-interface Department {
-  id: string;
-  name: string;
-  description?: string;
-  head?: Employee;
-  employees: Employee[];
-  isArchived: boolean;
-  createdAt: string;
-}
-
-// Mock data
-const mockDepartments: Record<string, Department> = {
-  dept1: {
-    id: "dept1",
-    name: "Engineering",
-    description: "Building and maintaining our core product and infrastructure",
-    head: {
-      id: "emp1",
-      name: "Alice Cooper",
-      email: "alice.cooper@codeable.com",
-      role: "Engineering Lead",
-      status: "active",
-      location: "San Francisco",
-    },
-    employees: [
-      { id: "emp1", name: "Alice Cooper", email: "alice.cooper@codeable.com", role: "Engineering Lead", status: "active", location: "San Francisco" },
-      { id: "emp2", name: "Bob Smith", email: "bob.smith@codeable.com", role: "Senior Developer", status: "remote", location: "Remote" },
-      { id: "emp4", name: "David Brown", email: "david.brown@codeable.com", role: "Developer", status: "on_leave", location: "San Francisco" },
-      { id: "emp6", name: "Frank Miller", email: "frank.miller@codeable.com", role: "Developer", status: "active", location: "San Francisco" },
-      { id: "emp8", name: "Henry Chen", email: "henry.chen@codeable.com", role: "DevOps Engineer", status: "remote", location: "Remote" },
-    ],
-    isArchived: false,
-    createdAt: "2023-01-15",
-  },
-  dept2: {
-    id: "dept2",
-    name: "Design",
-    description: "Creating beautiful and intuitive user experiences",
-    head: {
-      id: "emp3",
-      name: "Carol White",
-      email: "carol.white@codeable.com",
-      role: "Lead Designer",
-      status: "active",
-      location: "New York",
-    },
-    employees: [
-      { id: "emp3", name: "Carol White", email: "carol.white@codeable.com", role: "Lead Designer", status: "active", location: "New York" },
-      { id: "emp9", name: "Ivy Zhang", email: "ivy.zhang@codeable.com", role: "UI Designer", status: "active", location: "New York" },
-      { id: "emp10", name: "Jack Wilson", email: "jack.wilson@codeable.com", role: "UX Researcher", status: "remote", location: "Remote" },
-    ],
-    isArchived: false,
-    createdAt: "2023-01-15",
-  },
-  dept3: {
-    id: "dept3",
-    name: "Product",
-    description: "Defining product strategy and roadmap",
-    head: {
-      id: "emp7",
-      name: "Grace Lee",
-      email: "grace.lee@codeable.com",
-      role: "Product Manager",
-      status: "active",
-      location: "New York",
-    },
-    employees: [
-      { id: "emp7", name: "Grace Lee", email: "grace.lee@codeable.com", role: "Product Manager", status: "active", location: "New York" },
-      { id: "emp11", name: "Kevin Park", email: "kevin.park@codeable.com", role: "Associate PM", status: "active", location: "San Francisco" },
-    ],
-    isArchived: false,
-    createdAt: "2023-02-01",
-  },
-  dept4: {
-    id: "dept4",
-    name: "Quality Assurance",
-    description: "Ensuring product quality and reliability",
-    head: {
-      id: "emp5",
-      name: "Emma Wilson",
-      email: "emma.wilson@codeable.com",
-      role: "QA Lead",
-      status: "remote",
-      location: "Remote",
-    },
-    employees: [
-      { id: "emp5", name: "Emma Wilson", email: "emma.wilson@codeable.com", role: "QA Lead", status: "remote", location: "Remote" },
-      { id: "emp12", name: "Lisa Chen", email: "lisa.chen@codeable.com", role: "QA Engineer", status: "active", location: "San Francisco" },
-    ],
-    isArchived: false,
-    createdAt: "2023-03-10",
-  },
-  dept5: {
-    id: "dept5",
-    name: "Human Resources",
-    description: "Supporting our people and culture",
-    employees: [
-      { id: "emp13", name: "Maria Garcia", email: "maria.garcia@codeable.com", role: "HR Manager", status: "active", location: "San Francisco" },
-      { id: "emp14", name: "Nina Patel", email: "nina.patel@codeable.com", role: "HR Coordinator", status: "active", location: "San Francisco" },
-    ],
-    isArchived: false,
-    createdAt: "2023-01-15",
-  },
-};
-
-const statusConfig: Record<EmployeeStatus, { label: string; color: string; bg: string }> = {
-  active: { label: "Active", color: "text-success", bg: "bg-success" },
-  on_leave: { label: "On Leave", color: "text-warning", bg: "bg-warning" },
-  remote: { label: "Remote", color: "text-primary", bg: "bg-primary" },
-};
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Sheet, SheetFooter } from "@/components/ui/sheet";
+import { ConfirmModal } from "@/components/ui/modal";
+import { SkeletonList } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/shared/page-header";
+import { QueryState } from "@/components/shared/query-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import { primaryManager, type DepartmentEmployee } from "@/lib/api/departments";
+import { useDepartmentDetail } from "./use-department-detail";
 
 export default function DepartmentDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const departmentId = params.id as string;
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  const { query, department, available, update, setManager, addMember, removeMember } =
+    useDepartmentDetail(id);
 
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [hasError, setHasError] = React.useState(false);
-  const [department, setDepartment] = React.useState<Department | null>(null);
+  // Inline name/description edit
+  const [editing, setEditing] = React.useState(false);
+  const [nameDraft, setNameDraft] = React.useState("");
+  const [descDraft, setDescDraft] = React.useState("");
 
-  // Modal states
-  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
-  const [isChangeHeadModalOpen, setIsChangeHeadModalOpen] = React.useState(false);
-  const [isArchiveModalOpen, setIsArchiveModalOpen] = React.useState(false);
-  const [activeDropdown, setActiveDropdown] = React.useState<string | null>(null);
+  // Sheets / modals
+  const [managerOpen, setManagerOpen] = React.useState(false);
+  const [managerDraft, setManagerDraft] = React.useState("");
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [toRemove, setToRemove] = React.useState<DepartmentEmployee | null>(null);
 
-  // Form states
-  const [formName, setFormName] = React.useState("");
-  const [formDescription, setFormDescription] = React.useState("");
-  const [selectedHeadId, setSelectedHeadId] = React.useState<string>("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [formError, setFormError] = React.useState("");
-
-  // Load department data
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      const dept = mockDepartments[departmentId];
-      if (dept) {
-        setDepartment(dept);
-      } else {
-        setHasError(true);
-      }
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [departmentId]);
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = () => setActiveDropdown(null);
-    if (activeDropdown) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-    }
-  }, [activeDropdown]);
-
-  // Open edit modal
-  const openEditModal = () => {
+  const startEdit = () => {
     if (!department) return;
-    setFormName(department.name);
-    setFormDescription(department.description || "");
-    setFormError("");
-    setIsEditModalOpen(true);
+    setNameDraft(department.name);
+    setDescDraft(department.description ?? "");
+    setEditing(true);
   };
 
-  // Open change head modal
-  const openChangeHeadModal = () => {
-    if (!department) return;
-    setSelectedHeadId(department.head?.id || "");
-    setIsChangeHeadModalOpen(true);
-  };
-
-  // Handle edit
-  const handleEdit = async () => {
-    if (!department) return;
-    if (!formName.trim()) {
-      setFormError("Department name is required");
-      return;
-    }
-
-    setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-
-    setDepartment({
-      ...department,
-      name: formName.trim(),
-      description: formDescription.trim() || undefined,
-    });
-
-    setIsSubmitting(false);
-    setIsEditModalOpen(false);
-  };
-
-  // Handle change head
-  const handleChangeHead = async () => {
-    if (!department) return;
-
-    setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-
-    const newHead = selectedHeadId
-      ? department.employees.find((e) => e.id === selectedHeadId)
-      : undefined;
-
-    setDepartment({
-      ...department,
-      head: newHead,
-    });
-
-    setIsSubmitting(false);
-    setIsChangeHeadModalOpen(false);
-  };
-
-  // Handle archive
-  const handleArchive = async () => {
-    setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setIsSubmitting(false);
-    setIsArchiveModalOpen(false);
-    router.push("/departments");
-  };
-
-  // Retry on error
-  const handleRetry = () => {
-    setHasError(false);
-    setIsLoading(true);
-    setTimeout(() => {
-      const dept = mockDepartments[departmentId];
-      if (dept) {
-        setDepartment(dept);
-      } else {
-        setHasError(true);
-      }
-      setIsLoading(false);
-    }, 500);
-  };
-
-  if (hasError) {
-    return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <ErrorState
-          title="Department not found"
-          message="We couldn't find this department. It may have been removed or you don't have access."
-          onRetry={handleRetry}
-        />
-      </div>
+  const saveEdit = () => {
+    if (!nameDraft.trim()) return;
+    update.mutate(
+      { name: nameDraft.trim(), description: descDraft.trim() || undefined },
+      { onSuccess: () => setEditing(false) }
     );
-  }
+  };
 
-  if (isLoading) {
-    return (
-      <StaggerContainer className="space-y-6">
-        <StaggerItem>
-          <div className="flex items-center gap-4">
-            <Skeleton variant="circular" className="h-10 w-10" />
-            <div className="flex-1 space-y-2">
-              <Skeleton variant="text" className="h-6 w-48" />
-              <Skeleton variant="text" className="h-4 w-32" />
-            </div>
-          </div>
-        </StaggerItem>
+  const openManager = () => {
+    setManagerDraft(department ? primaryManager(department)?.id ?? "" : "");
+    setManagerOpen(true);
+    available.refetch();
+  };
 
-        <StaggerItem>
-          <div className="p-6 rounded-xl border border-border bg-card space-y-4">
-            <Skeleton variant="text" className="h-5 w-24" />
-            <Skeleton variant="text" className="h-4 w-full" />
-            <Skeleton variant="text" className="h-4 w-3/4" />
-          </div>
-        </StaggerItem>
+  const openAdd = () => {
+    setAddOpen(true);
+    available.refetch();
+  };
 
-        <StaggerItem>
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="p-4 rounded-xl border border-border bg-card">
-                <div className="flex items-center gap-4">
-                  <Skeleton variant="circular" className="h-10 w-10" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton variant="text" className="h-5 w-32" />
-                    <Skeleton variant="text" className="h-4 w-48" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </StaggerItem>
-      </StaggerContainer>
-    );
-  }
-
-  if (!department) return null;
+  const availableOptions = React.useMemo(
+    () =>
+      (available.data ?? []).map((e) => ({
+        value: e.id,
+        label: e.full_name,
+        description: e.designation ?? e.role,
+      })),
+    [available.data]
+  );
 
   return (
-    <StaggerContainer className="space-y-6">
-      {/* Header */}
-      <StaggerItem>
-        <div className="flex items-center gap-4">
-          <Link href="/departments">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-muted">
-                <Building2 className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold text-foreground">
-                  {department.name}
-                </h1>
-                <p className="text-sm text-foreground-muted">
-                  {department.employees.length} team {department.employees.length === 1 ? "member" : "members"}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={openEditModal}>
-              <Pencil className="h-4 w-4" />
-              <span className="hidden sm:inline">Edit</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2 text-destructive hover:text-destructive hover:bg-destructive-muted"
-              onClick={() => setIsArchiveModalOpen(true)}
-            >
-              <Archive className="h-4 w-4" />
-              <span className="hidden sm:inline">Archive</span>
-            </Button>
-          </div>
-        </div>
-      </StaggerItem>
+    <div className="space-y-6">
+      <PageHeader title="Department" back />
 
-      {/* Department Info Card */}
-      <StaggerItem>
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            {department.description && (
-              <div>
-                <h3 className="text-sm font-medium text-foreground-muted mb-2">About</h3>
-                <p className="text-foreground">{department.description}</p>
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-2">
-              {/* Department Head */}
-              <div className="flex-1">
-                <h3 className="text-sm font-medium text-foreground-muted mb-2">Department Head</h3>
-                {department.head ? (
-                  <div className="flex items-center gap-3">
-                    <Avatar name={department.head.name} size="md" />
+      <QueryState
+        isLoading={query.isLoading}
+        isError={query.isError}
+        error={query.error}
+        data={department}
+        onRetry={() => query.refetch()}
+        skeleton={<SkeletonList items={5} />}
+        emptyIcon={Building2}
+        emptyTitle="Department not found"
+        emptyDescription="It may have been removed or you don't have access."
+      >
+        {(dept) => {
+          const manager = primaryManager(dept);
+          const members = dept.employees ?? [];
+          return (
+            <div className="space-y-6">
+              {/* Header / details card */}
+              <Card className="p-6">
+                {editing ? (
+                  <div className="space-y-4">
                     <div>
-                      <p className="font-medium text-foreground">{department.head.name}</p>
-                      <p className="text-sm text-foreground-muted">{department.head.role}</p>
+                      <Label className="mb-2 block" required>
+                        Name
+                      </Label>
+                      <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} autoFocus />
+                    </div>
+                    <div>
+                      <Label className="mb-2 block" optional>
+                        Description
+                      </Label>
+                      <Textarea rows={3} value={descDraft} onChange={(e) => setDescDraft(e.target.value)} />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setEditing(false)} disabled={update.isPending}>
+                        <X className="h-4 w-4" /> Cancel
+                      </Button>
+                      <Button size="sm" onClick={saveEdit} isLoading={update.isPending} disabled={!nameDraft.trim()}>
+                        <Check className="h-4 w-4" /> Save
+                      </Button>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-foreground-muted italic">No head assigned</p>
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-muted">
+                      <Building2 className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h1 className="text-xl font-bold text-foreground">{dept.name}</h1>
+                      <p className="mt-0.5 text-sm text-foreground-muted">
+                        {members.length} {members.length === 1 ? "member" : "members"}
+                      </p>
+                      {dept.description && (
+                        <p className="mt-3 text-sm text-foreground">{dept.description}</p>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={startEdit}>
+                      <Pencil className="h-4 w-4" /> Edit
+                    </Button>
+                  </div>
+                )}
+              </Card>
+
+              {/* Manager section */}
+              <Card className="p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
+                    Manager
+                  </h2>
+                  <Button variant="outline" size="sm" onClick={openManager}>
+                    <UserCog className="h-4 w-4" /> {manager ? "Change Manager" : "Assign Manager"}
+                  </Button>
+                </div>
+                {manager ? (
+                  <div className="flex items-center gap-3">
+                    <Avatar name={manager.full_name} src={manager.avatar ?? undefined} size="md" />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-foreground">{manager.full_name}</p>
+                      {(manager.designation ?? manager.role) && (
+                        <p className="truncate text-sm text-foreground-muted">
+                          {manager.designation ?? manager.role}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm italic text-foreground-muted">No manager assigned</p>
+                )}
+              </Card>
+
+              {/* Members section */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-foreground">Members</h2>
+                    <Badge variant="muted" className="gap-1">
+                      <Users className="h-3 w-3" />
+                      {members.length}
+                    </Badge>
+                  </div>
+                  <Button size="sm" onClick={openAdd}>
+                    <UserPlus className="h-4 w-4" /> Add Member
+                  </Button>
+                </div>
+
+                {members.length === 0 ? (
+                  <EmptyState
+                    icon={Users}
+                    title="No members yet"
+                    description="Add people to this department to get started."
+                    action={{ label: "Add Member", onClick: openAdd }}
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    {members.map((emp) => {
+                      const isManager = manager?.id === emp.id;
+                      return (
+                        <Card key={emp.id} className="flex items-center gap-3 p-4">
+                          <Avatar name={emp.full_name} src={emp.avatar ?? undefined} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate font-medium text-foreground">{emp.full_name}</p>
+                              {isManager && (
+                                <Badge variant="muted" className="gap-1 text-xs">
+                                  <UserCog className="h-3 w-3" /> Manager
+                                </Badge>
+                              )}
+                            </div>
+                            {(emp.designation ?? emp.role) && (
+                              <p className="truncate text-sm text-foreground-muted">
+                                {emp.designation ?? emp.role}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Remove member"
+                            onClick={() => setToRemove(emp)}
+                          >
+                            <UserMinus className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 self-start"
-                onClick={openChangeHeadModal}
-              >
-                <UserCog className="h-4 w-4" />
-                {department.head ? "Change Head" : "Assign Head"}
-              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </StaggerItem>
+          );
+        }}
+      </QueryState>
 
-      {/* Team Members Section */}
-      <StaggerItem>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">Team Members</h2>
-          <Badge variant="muted" className="gap-1">
-            <Users className="h-3 w-3" />
-            {department.employees.length}
-          </Badge>
-        </div>
-      </StaggerItem>
-
-      {department.employees.length === 0 ? (
-        <StaggerItem>
-          <EmptyState
-            icon={Users}
-            title="No team members yet"
-            description="People will appear here when they're added to this department."
-          />
-        </StaggerItem>
-      ) : (
-        <div className="space-y-2">
-          {department.employees.map((employee, index) => (
-            <StaggerItem key={employee.id} index={index}>
-              <Card className="hover:border-primary/30 transition-colors">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    {/* Avatar with status indicator */}
-                    <div className="relative">
-                      <Avatar name={employee.name} size="md" />
-                      <span
-                        className={cn(
-                          "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card",
-                          statusConfig[employee.status].bg
-                        )}
-                      />
-                    </div>
-
-                    {/* Employee Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-foreground">{employee.name}</h3>
-                        {department.head?.id === employee.id && (
-                          <Badge variant="muted" className="text-xs gap-1">
-                            <User className="h-3 w-3" />
-                            Head
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-foreground-muted">{employee.role}</p>
-                    </div>
-
-                    {/* Meta info - hidden on mobile */}
-                    <div className="hidden md:flex items-center gap-6 text-sm text-foreground-muted">
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-4 w-4" />
-                        {employee.email}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {employee.location}
-                      </div>
-                      <Badge
-                        className={cn(
-                          "text-xs",
-                          statusConfig[employee.status].color,
-                          `${statusConfig[employee.status].bg}/20`
-                        )}
-                      >
-                        {statusConfig[employee.status].label}
-                      </Badge>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="relative">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveDropdown(activeDropdown === employee.id ? null : employee.id);
-                        }}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-
-                      {activeDropdown === employee.id && (
-                        <div
-                          className="absolute right-0 top-full mt-1 z-10 w-44 rounded-lg border border-border bg-card shadow-lg py-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Link
-                            href={`/people/${employee.id}`}
-                            className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-secondary transition-colors"
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                            View Profile
-                          </Link>
-                          {department.head?.id !== employee.id && (
-                            <button
-                              className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-secondary transition-colors"
-                              onClick={() => {
-                                setSelectedHeadId(employee.id);
-                                setIsChangeHeadModalOpen(true);
-                                setActiveDropdown(null);
-                              }}
-                            >
-                              <UserCog className="h-4 w-4" />
-                              Make Head
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Mobile meta info */}
-                  <div className="flex flex-wrap items-center gap-2 mt-3 md:hidden">
-                    <Badge
-                      className={cn(
-                        "text-xs",
-                        statusConfig[employee.status].color,
-                        `${statusConfig[employee.status].bg}/20`
-                      )}
-                    >
-                      {statusConfig[employee.status].label}
-                    </Badge>
-                    <span className="text-xs text-foreground-subtle flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {employee.location}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </StaggerItem>
-          ))}
-        </div>
-      )}
-
-      {/* Edit Department Modal */}
-      <Modal
-        open={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Department"
-        description="Update department details"
+      {/* Change manager sheet */}
+      <Sheet
+        open={managerOpen}
+        onClose={() => setManagerOpen(false)}
+        title="Change Manager"
+        description="Pick a team member to lead this department"
         size="md"
       >
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Department Name <span className="text-destructive">*</span>
-            </label>
-            <Input
-              value={formName}
-              onChange={(e) => {
-                setFormName(e.target.value);
-                setFormError("");
-              }}
-              placeholder="e.g., Marketing"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Description
-            </label>
-            <Textarea
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              placeholder="What does this team do?"
-              className="min-h-[80px] resize-none"
-            />
-          </div>
-
-          {formError && (
-            <p className="text-sm text-destructive">{formError}</p>
+          <Select
+            label="Manager"
+            placeholder={available.isFetching ? "Loading…" : "Select a manager"}
+            options={availableOptions}
+            value={managerDraft}
+            onChange={setManagerDraft}
+          />
+          {!available.isFetching && availableOptions.length === 0 && (
+            <p className="text-sm text-foreground-muted">No eligible employees available.</p>
           )}
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setIsEditModalOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleEdit}
-              isLoading={isSubmitting}
-            >
-              {!isSubmitting && "Save Changes"}
-            </Button>
-          </div>
         </div>
-      </Modal>
+        <SheetFooter>
+          <Button variant="outline" onClick={() => setManagerOpen(false)} disabled={setManager.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() =>
+              setManager.mutate(managerDraft, { onSuccess: () => setManagerOpen(false) })
+            }
+            isLoading={setManager.isPending}
+            disabled={!managerDraft}
+          >
+            Save Manager
+          </Button>
+        </SheetFooter>
+      </Sheet>
 
-      {/* Change Head Modal */}
-      <Modal
-        open={isChangeHeadModalOpen}
-        onClose={() => setIsChangeHeadModalOpen(false)}
-        title="Change Department Head"
-        description="Select a team member to lead this department"
-        size="sm"
+      {/* Add member sheet */}
+      <Sheet
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add Member"
+        description="Add an employee to this department"
+        size="md"
       >
-        <div className="space-y-4">
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            <label
-              className={cn(
-                "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                !selectedHeadId
-                  ? "border-primary bg-primary-muted/30"
-                  : "border-border hover:border-primary/30"
-              )}
-            >
-              <input
-                type="radio"
-                name="head"
-                value=""
-                checked={!selectedHeadId}
-                onChange={() => setSelectedHeadId("")}
-                className="sr-only"
-              />
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
-                <User className="h-5 w-5 text-foreground-muted" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">No Head</p>
-                <p className="text-sm text-foreground-muted">Remove current head</p>
-              </div>
-            </label>
-
-            {department.employees.map((employee) => (
-              <label
-                key={employee.id}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                  selectedHeadId === employee.id
-                    ? "border-primary bg-primary-muted/30"
-                    : "border-border hover:border-primary/30"
-                )}
-              >
-                <input
-                  type="radio"
-                  name="head"
-                  value={employee.id}
-                  checked={selectedHeadId === employee.id}
-                  onChange={() => setSelectedHeadId(employee.id)}
-                  className="sr-only"
-                />
-                <Avatar name={employee.name} size="md" />
-                <div className="flex-1">
-                  <p className="font-medium text-foreground">{employee.name}</p>
-                  <p className="text-sm text-foreground-muted">{employee.role}</p>
+        <QueryState
+          isLoading={available.isFetching}
+          isError={available.isError}
+          error={available.error}
+          data={available.data}
+          onRetry={() => available.refetch()}
+          skeleton={<SkeletonList items={4} />}
+          emptyIcon={Users}
+          emptyTitle="No available employees"
+          emptyDescription="Everyone is already assigned to a department."
+        >
+          {(list) => (
+            <div className="space-y-2">
+              {list.map((emp) => (
+                <div
+                  key={emp.id}
+                  className="flex items-center gap-3 rounded-[var(--radius)] border border-border p-3"
+                >
+                  <Avatar name={emp.full_name} src={emp.avatar ?? undefined} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{emp.full_name}</p>
+                    {(emp.designation ?? emp.role) && (
+                      <p className="truncate text-xs text-foreground-muted">
+                        {emp.designation ?? emp.role}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addMember.mutate(emp.id)}
+                    isLoading={addMember.isPending && addMember.variables === emp.id}
+                    disabled={addMember.isPending}
+                  >
+                    <UserPlus className="h-4 w-4" /> Add
+                  </Button>
                 </div>
-                {department.head?.id === employee.id && (
-                  <Badge variant="muted" className="text-xs">Current</Badge>
-                )}
-              </label>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+        </QueryState>
+      </Sheet>
 
-          <div className="flex gap-3 pt-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setIsChangeHeadModalOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleChangeHead}
-              isLoading={isSubmitting}
-            >
-              {!isSubmitting && "Update Head"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Archive Confirmation Modal */}
+      {/* Remove member confirm */}
       <ConfirmModal
-        open={isArchiveModalOpen}
-        onClose={() => setIsArchiveModalOpen(false)}
-        onConfirm={handleArchive}
-        title={`Archive ${department.name}?`}
-        description="This department will be hidden from the list. Team members won't be affected and you can restore it later."
-        confirmLabel="Archive Department"
+        open={!!toRemove}
+        onClose={() => setToRemove(null)}
+        onConfirm={() => {
+          if (toRemove)
+            removeMember.mutate(toRemove.employee_code ?? toRemove.id, {
+              onSettled: () => setToRemove(null),
+            });
+        }}
+        title={toRemove ? `Remove ${toRemove.full_name}?` : "Remove member?"}
+        description="They will be removed from this department."
+        confirmLabel="Remove"
         variant="destructive"
-        isLoading={isSubmitting}
+        isLoading={removeMember.isPending}
       />
-    </StaggerContainer>
+    </div>
   );
 }

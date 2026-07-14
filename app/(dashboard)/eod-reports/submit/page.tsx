@@ -1,313 +1,183 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowLeft,
-  Send,
-  Save,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-} from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Save, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { WritingArea, AutosaveIndicator, HoursInput, EODStatusBadge } from "@/components/eod";
-import { StaggerContainer, StaggerItem } from "@/components/animations/fade-in";
-import { formatDate } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/shared/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { toWireDate } from "@/lib/format";
+import { useSubmitEod } from "./use-submit-eod";
 
-// Mock projects data
-const projects = [
-  { value: "codeablehr", label: "CodeableHR", description: "Internal HR Platform" },
-  { value: "client-portal", label: "Client Portal", description: "Customer Dashboard" },
-  { value: "internal", label: "Internal Work", description: "Meetings, reviews, etc." },
-  { value: "other", label: "Other", description: "Miscellaneous tasks" },
-];
+const schema = z.object({
+  date: z.string().min(1, "Please select a date"),
+  project_id: z.string().min(1, "Please select a project"),
+  summary: z
+    .string()
+    .min(10, "Summary must be at least 10 characters")
+    .max(1000, "Keep it under 1000 characters"),
+  blockers: z.string().max(1000).optional(),
+  tomorrow_plan: z.string().max(1000).optional(),
+});
+type FormValues = z.infer<typeof schema>;
 
-// Initial form state
-const initialFormState = {
-  summary: "",
-  project: "",
-  hours: 8,
-  blockers: "",
-  tomorrowPlan: "",
-};
+const DEFAULT_HOURS = 8;
 
-type SaveStatus = "idle" | "saving" | "saved" | "error";
-
-export default function SubmitEODPage() {
-  const router = useRouter();
+function recentDates(): { value: string; label: string }[] {
+  const days: { value: string; label: string }[] = [];
   const today = new Date();
+  for (let i = 0; i < 8; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    days.push({
+      value: toWireDate(d),
+      label:
+        i === 0 ? "Today" : i === 1 ? "Yesterday" : d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" }),
+    });
+  }
+  return days;
+}
 
-  // Form state
-  const [formData, setFormData] = React.useState(initialFormState);
-  const [showOptionalFields, setShowOptionalFields] = React.useState(false);
-  const [saveStatus, setSaveStatus] = React.useState<SaveStatus>("idle");
-  const [lastSaved, setLastSaved] = React.useState<Date | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [hasChanges, setHasChanges] = React.useState(false);
+export default function SubmitEodPage() {
+  const { isEditing, editing, projectOptions, saveDraft, submit } = useSubmitEod();
+  const dateChips = React.useMemo(() => recentDates(), []);
 
-  // Determine EOD status
-  const eodStatus = formData.summary.trim() ? "draft" : "not_started";
+  const {
+    control,
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { date: dateChips[0].value, project_id: "", summary: "", blockers: "", tomorrow_plan: "" },
+  });
 
-  // Track changes for autosave
+  // Prefill in edit mode.
   React.useEffect(() => {
-    const hasAnyContent = !!(formData.summary.trim() || formData.project || formData.blockers.trim() || formData.tomorrowPlan.trim());
-    setHasChanges(hasAnyContent);
-  }, [formData]);
+    if (editing.data) {
+      reset({
+        date: editing.data.date,
+        project_id: editing.data.project_id ?? "",
+        summary: editing.data.summary ?? "",
+        blockers: editing.data.blockers ?? "",
+        tomorrow_plan: editing.data.tomorrow_plan ?? "",
+      });
+    }
+  }, [editing.data, reset]);
 
-  // Autosave effect
-  React.useEffect(() => {
-    if (!hasChanges) return;
+  const toBody = (v: FormValues) => ({ ...v, hours: editing.data?.hours ?? DEFAULT_HOURS });
+  const onSaveDraft = handleSubmit((v) => saveDraft.mutate(toBody(v)));
+  const onSubmit = handleSubmit((v) => submit.mutate(toBody(v)));
+  const summaryLen = watch("summary")?.length ?? 0;
+  const pending = saveDraft.isPending || submit.isPending;
 
-    const timer = setTimeout(async () => {
-      setSaveStatus("saving");
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      setSaveStatus("saved");
-      setLastSaved(new Date());
-
-      // Reset to idle after showing saved
-      setTimeout(() => setSaveStatus("idle"), 2000);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [formData, hasChanges]);
-
-  // Handle form submit
-  const handleSubmit = async () => {
-    if (!formData.summary.trim()) return;
-
-    setIsSubmitting(true);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Redirect to history or show success
-    router.push("/eod-reports/history");
-  };
-
-  // Handle save draft
-  const handleSaveDraft = async () => {
-    setSaveStatus("saving");
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setSaveStatus("saved");
-    setLastSaved(new Date());
-  };
-
-  const isValid = formData.summary.trim().length > 0 && formData.project;
+  if (isEditing && editing.isLoading) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
 
   return (
-    <StaggerContainer className="max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <StaggerItem>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/eod-reports">
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl md:text-2xl font-bold text-foreground">
-                  Today's EOD
-                </h1>
-                <EODStatusBadge status={eodStatus} size="sm" />
-              </div>
-              <p className="text-sm text-foreground-muted">
-                {formatDate(today)} · {today.toLocaleDateString("en-US", { weekday: "long" })}
-              </p>
-            </div>
-          </div>
+    <div className="mx-auto max-w-2xl space-y-6 pb-24">
+      <PageHeader title={isEditing ? "Edit EOD Report" : "Submit EOD"} back />
 
-          <AutosaveIndicator status={saveStatus} lastSaved={lastSaved} />
-        </div>
-      </StaggerItem>
-
-      {/* Motivational prompt */}
-      <StaggerItem>
-        <motion.div
-          className="flex items-center gap-3 p-4 rounded-xl bg-primary-muted/30 border border-primary/10"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Sparkles className="h-5 w-5 text-primary shrink-0" />
-          <p className="text-sm text-foreground-muted">
-            Take a moment to reflect on your day. What did you accomplish? What did you learn?
-          </p>
-        </motion.div>
-      </StaggerItem>
-
-      {/* Main Writing Area */}
-      <StaggerItem>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="summary" className="text-base">
-              What did you work on today?
-            </Label>
-            <span className="text-xs text-foreground-subtle">Required</span>
-          </div>
-          <WritingArea
-            value={formData.summary}
-            onChange={(value) => setFormData({ ...formData, summary: value })}
-            placeholder="Today I worked on...
-
-• Completed the dashboard UI components
-• Fixed a critical bug in the auth flow
-• Attended the sprint planning meeting
-
-Feel free to write in your own style - bullet points, paragraphs, or however works best for you."
-            minHeight={200}
-            maxHeight={400}
-          />
-        </div>
-      </StaggerItem>
-
-      {/* Project & Hours Row */}
-      <StaggerItem>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Project Select */}
-          <div className="space-y-3">
-            <Label>Project / Client</Label>
-            <Select
-              value={formData.project}
-              onChange={(value) => setFormData({ ...formData, project: value })}
-              options={projects}
-              placeholder="Select a project"
-            />
-          </div>
-
-          {/* Hours Input */}
-          <Card className="p-5">
-            <Label className="mb-4 block">Hours Worked</Label>
-            <HoursInput
-              value={formData.hours}
-              onChange={(value) => setFormData({ ...formData, hours: value })}
-              min={0}
-              max={12}
-              step={0.5}
-            />
-          </Card>
-        </div>
-      </StaggerItem>
-
-      {/* Optional Fields Toggle */}
-      <StaggerItem>
-        <button
-          type="button"
-          onClick={() => setShowOptionalFields(!showOptionalFields)}
-          className="flex items-center gap-2 text-sm text-foreground-muted hover:text-foreground transition-colors"
-        >
-          {showOptionalFields ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-          {showOptionalFields ? "Hide" : "Show"} optional fields
-        </button>
-      </StaggerItem>
-
-      {/* Optional Fields */}
-      <AnimatePresence>
-        {showOptionalFields && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-6 overflow-visible"
-          >
-            {/* Blockers */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="blockers">Blockers</Label>
-                <span className="text-xs text-foreground-subtle px-2 py-0.5 bg-secondary rounded-full">
-                  Optional
-                </span>
-              </div>
-              <Textarea
-                id="blockers"
-                value={formData.blockers}
-                onChange={(e) => setFormData({ ...formData, blockers: e.target.value })}
-                placeholder="Any blockers or challenges you faced? This helps your team understand what support you might need."
-                className="min-h-[100px]"
-              />
-            </div>
-
-            {/* Tomorrow's Plan */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="tomorrowPlan">Tomorrow's Plan</Label>
-                <span className="text-xs text-foreground-subtle px-2 py-0.5 bg-secondary rounded-full">
-                  Optional
-                </span>
-              </div>
-              <Textarea
-                id="tomorrowPlan"
-                value={formData.tomorrowPlan}
-                onChange={(e) => setFormData({ ...formData, tomorrowPlan: e.target.value })}
-                placeholder="What do you plan to work on tomorrow? This helps with continuity and planning."
-                className="min-h-[100px]"
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Action Buttons */}
-      <StaggerItem>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-border">
-          <Button
-            variant="outline"
-            onClick={handleSaveDraft}
-            disabled={!hasChanges || isSubmitting}
-            className="gap-2"
-          >
-            <Save className="h-4 w-4" />
-            Save Draft
-          </Button>
-
-          <div className="flex items-center gap-3">
-            {!isValid && formData.summary.trim() && (
-              <div className="flex items-center gap-2 text-sm text-warning">
-                <AlertCircle className="h-4 w-4" />
-                <span>Select a project</span>
+      <Card className="space-y-5 p-6">
+        {/* Report date */}
+        <div>
+          <Label className="mb-2 block">Report date</Label>
+          <Controller
+            control={control}
+            name="date"
+            render={({ field }) => (
+              <div className="flex flex-wrap gap-2">
+                {dateChips.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => field.onChange(c.value)}
+                    className={cn(
+                      "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+                      field.value === c.value
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border text-foreground-muted hover:border-border-hover hover:text-foreground"
+                    )}
+                  >
+                    {c.label}
+                  </button>
+                ))}
               </div>
             )}
-            <Button
-              onClick={handleSubmit}
-              disabled={!isValid || isSubmitting}
-              isLoading={isSubmitting}
-              size="lg"
-              className="gap-2 min-w-[140px]"
-            >
-              {!isSubmitting && (
-                <>
-                  <Send className="h-4 w-4" />
-                  Submit EOD
-                </>
-              )}
-            </Button>
-          </div>
+          />
         </div>
-      </StaggerItem>
 
-      {/* Submit warning */}
-      <StaggerItem>
-        <p className="text-xs text-center text-foreground-subtle">
-          Once submitted, your EOD will be visible to your manager and cannot be edited.
-        </p>
-      </StaggerItem>
-    </StaggerContainer>
+        {/* Project */}
+        <Controller
+          control={control}
+          name="project_id"
+          render={({ field }) => (
+            <Select
+              label="Project"
+              placeholder="Select a project"
+              options={projectOptions}
+              value={field.value}
+              onChange={field.onChange}
+              error={errors.project_id?.message}
+            />
+          )}
+        />
+
+        {/* Summary */}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <Label>Summary</Label>
+            <span className={cn("text-xs", summaryLen > 1000 ? "text-destructive" : "text-foreground-subtle")}>
+              {summaryLen}/1000
+            </span>
+          </div>
+          <Textarea rows={6} placeholder="What did you work on today?" {...register("summary")} />
+          {errors.summary && <p className="mt-1.5 text-xs text-destructive">{errors.summary.message}</p>}
+        </div>
+
+        {/* Blockers */}
+        <div>
+          <Label className="mb-2 block">
+            Blockers <span className="text-foreground-subtle">(optional)</span>
+          </Label>
+          <Textarea rows={3} placeholder="Anything blocking you?" {...register("blockers")} />
+        </div>
+
+        {/* Tomorrow plan */}
+        <div>
+          <Label className="mb-2 block">
+            Tomorrow&apos;s plan <span className="text-foreground-subtle">(optional)</span>
+          </Label>
+          <Textarea rows={3} placeholder="What's next?" {...register("tomorrow_plan")} />
+        </div>
+      </Card>
+
+      {/* Sticky footer */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-sm md:pl-[240px]">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 p-4">
+          <Button variant="outline" onClick={onSaveDraft} isLoading={saveDraft.isPending} disabled={pending}>
+            <Save className="h-4 w-4" /> Save Draft
+          </Button>
+          <Button onClick={onSubmit} isLoading={submit.isPending} disabled={pending}>
+            <Send className="h-4 w-4" /> Submit
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

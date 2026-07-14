@@ -8,7 +8,6 @@ import {
   Users,
   FileText,
   Calendar,
-  TrendingUp,
   AlertCircle,
   LayoutDashboard,
   Settings,
@@ -24,10 +23,21 @@ import {
   BookOpen,
   MessageSquare,
   Clock,
+  Receipt,
+  Wallet,
+  Megaphone,
+  TrendingUp,
+  Landmark,
+  PieChart,
+  HandCoins,
+  Fingerprint,
+  Coins,
+  Palmtree,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useAuthStore, UserRole, hasRole, hasAnyRole } from "@/stores/auth-store";
+import { useAuthStore, UserRole, hasRole, hasAnyRole, isManagerUser } from "@/stores/auth-store";
 
 interface NavItem {
   title: string;
@@ -38,118 +48,48 @@ interface NavItem {
   roles?: UserRole[];
   // Or require minimum role level
   minRole?: UserRole;
+  // Show only for managers (role manager+ or is_manager flag)
+  managerOnly?: boolean;
   // Section divider before this item
   divider?: string;
 }
 
-// Navigation items with role-based visibility
+// Navigation items with role-based visibility (unified role-agnostic routes)
 const navItems: NavItem[] = [
-  // Everyone sees these
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "EOD Reports",
-    href: "/eod-reports",
-    icon: FileText,
-  },
-  {
-    title: "Leaves",
-    href: "/leaves",
-    icon: Calendar,
-  },
-  {
-    title: "Policies",
-    href: "/policies",
-    icon: BookOpen,
-  },
-  {
-    title: "Talk to HR",
-    href: "/my-issues",
-    icon: MessageSquare,
-  },
-  {
-    title: "My Time",
-    href: "/time",
-    icon: Clock,
-  },
+  // Self-service — everyone
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "EOD Reports", href: "/eod-reports", icon: FileText },
+  { title: "Leaves", href: "/leaves", icon: Calendar },
+  { title: "Attendance", href: "/time", icon: Clock },
+  { title: "Insurance Claims", href: "/insurance-claims", icon: Shield },
+  { title: "Expense Claims", href: "/expense-claims", icon: Receipt },
+  { title: "HR Help", href: "/my-issues", icon: MessageSquare },
+  { title: "Salary", href: "/salary-details", icon: Wallet },
+  { title: "Policies", href: "/policies", icon: BookOpen },
 
-  // Manager only - HR manages all personnel, not a specific team
-  {
-    title: "Team EODs",
-    href: "/team/eods",
-    icon: ClipboardCheck,
-    roles: ["manager"],
-    divider: "Team",
-  },
-  {
-    title: "Leave Approvals",
-    href: "/team/approvals",
-    icon: UserCheck,
-    roles: ["manager"],
-  },
-  {
-    title: "Team Time",
-    href: "/team/time",
-    icon: Clock,
-    roles: ["manager"],
-  },
+  // Manager only
+  { title: "Team EODs", href: "/eod-reports/team", icon: ClipboardCheck, managerOnly: true, divider: "Team" },
+  { title: "Team Leaves", href: "/leaves/team", icon: UserCheck, managerOnly: true },
 
-  // HR+ sees these
-  {
-    title: "People",
-    href: "/people",
-    icon: Users,
-    minRole: "hr",
-    divider: "Organization",
-  },
-  {
-    title: "Leave Management",
-    href: "/hr/leaves",
-    icon: Calendar,
-    minRole: "hr",
-  },
-  {
-    title: "HR Issues",
-    href: "/hr/issues",
-    icon: AlertCircle,
-    minRole: "hr",
-  },
-  {
-    title: "Departments",
-    href: "/departments",
-    icon: Building2,
-    minRole: "hr",
-  },
-  {
-    title: "Promotions",
-    href: "/hr/promotions",
-    icon: Award,
-    minRole: "hr",
-  },
-  {
-    title: "Policy Library",
-    href: "/hr/policies",
-    icon: BookOpen,
-    minRole: "hr",
-  },
-  {
-    title: "Company Time",
-    href: "/hr/time",
-    icon: Clock,
-    minRole: "hr",
-  },
+  // HR+ management
+  { title: "People", href: "/people", icon: Users, minRole: "hr", divider: "Organization" },
+  { title: "Leave Requests", href: "/hr/leaves", icon: Calendar, minRole: "hr" },
+  { title: "Attendance Logs", href: "/hr/time", icon: BarChart3, minRole: "hr" },
+  { title: "Departments", href: "/departments", icon: Building2, minRole: "hr" },
+  { title: "Projects", href: "/hr/projects", icon: Award, minRole: "hr" },
+  { title: "HR Issues", href: "/hr/issues", icon: AlertCircle, minRole: "hr" },
+  { title: "Payroll", href: "/hr/payroll", icon: Wallet, minRole: "hr" },
+  { title: "Post Announcement", href: "/hr/announcement", icon: Megaphone, minRole: "hr" },
 
   // Admin only
-  {
-    title: "Roles",
-    href: "/admin/roles",
-    icon: Shield,
-    roles: ["admin"],
-    divider: "System",
-  },
+  { title: "Promotions", href: "/admin/promotions", icon: TrendingUp, roles: ["admin"], divider: "Admin" },
+  { title: "Company Expenses", href: "/admin/expenses", icon: CreditCard, roles: ["admin"] },
+  { title: "Project Income", href: "/admin/project-income", icon: Coins, roles: ["admin"] },
+  { title: "Loans", href: "/admin/loans", icon: HandCoins, roles: ["admin"] },
+  { title: "Treasury", href: "/admin/treasury", icon: Landmark, roles: ["admin"] },
+  { title: "Equity", href: "/admin/equity", icon: PieChart, roles: ["admin"] },
+  { title: "Devices", href: "/admin/devices", icon: Fingerprint, roles: ["admin"] },
+  { title: "Holidays", href: "/all-holidays", icon: Palmtree, roles: ["admin"] },
 ];
 
 const bottomNavItems: NavItem[] = [
@@ -169,9 +109,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const userRole = user?.role || "employee";
+  const isManager = isManagerUser(user);
 
   // Filter nav items based on user role
   const visibleNavItems = navItems.filter((item) => {
+    if (item.managerOnly) return isManager;
     if (item.roles) {
       return hasAnyRole(userRole, item.roles);
     }
@@ -180,6 +122,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     }
     return true; // No role requirement, show to all
   });
+
+  // Determine the single active route (longest matching prefix) so a parent
+  // like /eod-reports doesn't also highlight while on /eod-reports/team.
+  const activeHref = [...navItems, ...bottomNavItems]
+    .map((i) => i.href)
+    .filter((h) => pathname === h || pathname.startsWith(h + "/"))
+    .sort((a, b) => b.length - a.length)[0];
 
   // Group items by divider
   const groupedItems: { divider?: string; items: NavItem[] }[] = [];
@@ -258,7 +207,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 <NavLink
                   key={item.href}
                   item={item}
-                  isActive={pathname.startsWith(item.href)}
+                  isActive={item.href === activeHref}
                   isCollapsed={isCollapsed}
                 />
               ))}
@@ -274,7 +223,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             <NavLink
               key={item.href}
               item={item}
-              isActive={pathname.startsWith(item.href)}
+              isActive={item.href === activeHref}
               isCollapsed={isCollapsed}
             />
           ))}

@@ -11,10 +11,23 @@ import {
   Menu,
   Plus,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, User as UserIcon, Settings } from "lucide-react";
 import { cn, getGreeting } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { useAuthStore } from "@/stores/auth-store";
+import { authApi } from "@/lib/api/auth";
+import { ROLE_LABELS } from "@/lib/enums";
 
 interface TopbarProps {
   onMobileMenuToggle: () => void;
@@ -23,13 +36,25 @@ interface TopbarProps {
 
 export function Topbar({ onMobileMenuToggle, sidebarCollapsed }: TopbarProps) {
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
   const [mounted, setMounted] = React.useState(false);
+  const authUser = useAuthStore((s) => s.user);
+  const clear = useAuthStore((s) => s.clear);
 
-  // Mock user data - replace with real data
   const user = {
-    name: "John Doe",
-    role: "Software Engineer",
-    avatar: undefined,
+    name: authUser?.full_name ?? "Guest",
+    role: authUser?.employment?.designation ?? ROLE_LABELS[authUser?.role ?? "employee"],
+    avatar: authUser?.avatar ?? undefined,
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      /* best-effort — clear locally regardless */
+    }
+    clear();
+    router.replace("/login");
   };
 
   React.useEffect(() => {
@@ -119,19 +144,33 @@ export function Topbar({ onMobileMenuToggle, sidebarCollapsed }: TopbarProps) {
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
         </Button>
 
-        {/* User Avatar */}
-        <div className="flex items-center gap-3 pl-2 border-l border-border ml-2">
-          <Avatar
-            name={user.name}
-            src={user.avatar}
-            size="sm"
-            status="online"
-            className="cursor-pointer"
-          />
-          <div className="hidden md:block">
-            <p className="text-sm font-medium text-foreground">{user.name}</p>
-            <p className="text-xs text-foreground-muted">{user.role}</p>
-          </div>
+        {/* User menu */}
+        <div className="ml-2 border-l border-border pl-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger>
+              <button type="button" className="flex items-center gap-3">
+                <Avatar name={user.name} src={user.avatar} size="sm" status="online" className="cursor-pointer" />
+                <div className="hidden text-left md:block">
+                  <p className="text-sm font-medium text-foreground">{user.name}</p>
+                  <p className="text-xs text-foreground-muted">{user.role}</p>
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>{authUser?.email ?? "Account"}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push("/profile")}>
+                <UserIcon className="h-4 w-4" /> Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/settings")}>
+                <Settings className="h-4 w-4" /> Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem destructive onClick={handleLogout}>
+                <LogOut className="h-4 w-4" /> Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

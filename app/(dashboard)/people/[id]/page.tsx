@@ -1,1105 +1,852 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
-  ArrowLeft,
+  Building2,
   Mail,
   Phone,
-  MapPin,
-  Calendar,
-  Building2,
-  User,
-  Palmtree,
-  Stethoscope,
-  Coffee,
   TrendingUp,
-  MessageSquare,
-  Edit,
-  Plus,
-  ChevronRight,
+  ArrowUpCircle,
   Pencil,
-  Trash2,
+  UserX,
+  FileText,
+  Gift,
+  Landmark,
+  ShieldAlert,
   Sparkles,
-  Award,
-  Shield,
-  Check,
-  X,
 } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Modal, ConfirmModal } from "@/components/ui/modal";
-import { StaggerContainer, StaggerItem } from "@/components/animations/fade-in";
-import { EmptyState } from "@/components/ui/empty-state";
-import { formatDate, cn } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Sheet, SheetFooter } from "@/components/ui/sheet";
+import { ConfirmModal } from "@/components/ui/modal";
+import { PageHeader } from "@/components/shared/page-header";
+import { QueryState } from "@/components/shared/query-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useEnums, toOptions } from "@/lib/api/enums";
+import {
+  EMPLOYMENT_TYPE_LABELS,
+  ROLE_LABELS,
+  SALARY_REVISION_LABELS,
+} from "@/lib/enums";
+import { formatMoney, formatOrdinalDate, parseAmount, toWireDate } from "@/lib/format";
+import { uploadFile } from "@/lib/api/uploads";
+import { useEmployee } from "./use-employee";
+import type { EmployeeInfo } from "@/lib/api/employees";
 
-// Types
-type TabId = "overview" | "leaves" | "promotions" | "notes" | "issues";
-
-interface LeaveBalance {
-  type: string;
-  remaining: number;
-  total: number;
-  icon: React.ReactNode;
-  color: string;
-}
-
-interface LeaveHistory {
-  id: string;
-  type: string;
-  startDate: string;
-  endDate: string;
-  days: number;
-  status: "approved" | "pending" | "rejected";
-}
-
-interface Promotion {
-  id: string;
-  fromRole: string;
-  toRole: string;
-  date: string;
-  notes?: string;
-  addedBy: string;
-  addedAt: string;
-}
-
-interface HRNote {
-  id: string;
-  content: string;
-  author: string;
-  createdAt: string;
-  isPrivate: boolean;
-}
-
-// Mock employee data
-const mockEmployee = {
-  id: "emp1",
-  name: "Alice Cooper",
-  email: "alice.cooper@codeable.com",
-  phone: "+1 234 567 8901",
-  role: "Senior Developer",
-  department: "Engineering",
-  location: "San Francisco",
-  status: "active" as const,
-  joinDate: "2021-03-15",
-  manager: "Sarah Manager",
-  bio: "Passionate about building great software. 5+ years of experience in full-stack development.",
+const STATUS_TONE: Record<string, "success" | "warning" | "muted" | "destructive"> = {
+  active: "success",
+  on_leave: "warning",
+  probation: "warning",
+  inactive: "muted",
+  terminated: "destructive",
 };
 
-const leaveBalances: LeaveBalance[] = [
-  { type: "Annual", remaining: 15, total: 21, icon: <Palmtree className="h-5 w-5" />, color: "primary" },
-  { type: "Sick", remaining: 8, total: 10, icon: <Stethoscope className="h-5 w-5" />, color: "warning" },
-  { type: "Casual", remaining: 3, total: 5, icon: <Coffee className="h-5 w-5" />, color: "accent" },
-];
+const statusLabel = (s: string) =>
+  s.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
-const leaveHistory: LeaveHistory[] = [
-  { id: "l1", type: "Annual", startDate: "2024-01-10", endDate: "2024-01-12", days: 3, status: "approved" },
-  { id: "l2", type: "Sick", startDate: "2023-12-05", endDate: "2023-12-05", days: 1, status: "approved" },
-  { id: "l3", type: "Annual", startDate: "2023-11-20", endDate: "2023-11-24", days: 5, status: "approved" },
-];
+const labelize = (v?: string | null) =>
+  v ? v.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "—";
 
-const initialPromotions: Promotion[] = [
-  {
-    id: "p1",
-    fromRole: "Developer",
-    toRole: "Senior Developer",
-    date: "2023-06-01",
-    notes: "Excellent performance and leadership qualities. Has been mentoring junior developers and taking on more responsibilities.",
-    addedBy: "Emily HR",
-    addedAt: "2023-06-01T10:00:00",
-  },
-  {
-    id: "p2",
-    fromRole: "Junior Developer",
-    toRole: "Developer",
-    date: "2022-01-15",
-    notes: "Consistently exceeded expectations and demonstrated strong technical skills.",
-    addedBy: "Sarah Manager",
-    addedAt: "2022-01-15T09:00:00",
-  },
-];
+type ActionSheet = "edit" | "promote" | "increment" | null;
 
-const hrNotes: HRNote[] = [
-  { id: "n1", content: "Discussed career growth path. Interested in tech lead position.", author: "Emily HR", createdAt: "2024-01-15T10:00:00", isPrivate: true },
-  { id: "n2", content: "Completed annual review. Performance rating: Exceeds Expectations", author: "Sarah Manager", createdAt: "2023-12-20T14:00:00", isPrivate: false },
-];
+export default function EmployeeDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  const {
+    query,
+    update,
+    promote,
+    increment,
+    deactivate,
+    designationOptions,
+    departmentOptions,
+    managerOptions,
+  } = useEmployee(id);
 
-const relatedIssues = [
-  { id: "i1", title: "Equipment request", status: "resolved", date: "2023-10-15" },
-];
-
-// Available roles for assignment
-interface AvailableRole {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-}
-
-const availableRoles: AvailableRole[] = [
-  { id: "employee", name: "Employee", description: "Standard access for all team members", color: "text-primary" },
-  { id: "manager", name: "Manager", description: "Team leads who approve leaves and review EODs", color: "text-accent" },
-  { id: "hr", name: "HR", description: "Human resources with people operations access", color: "text-warning" },
-  { id: "admin", name: "Admin", description: "Full system access including settings and roles", color: "text-destructive" },
-  { id: "finance", name: "Finance", description: "Access to payroll and financial reports", color: "text-success" },
-];
-
-// Employee's current roles
-const initialEmployeeRoles = ["employee"];
-
-const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: "overview", label: "Overview", icon: <User className="h-4 w-4" /> },
-  { id: "leaves", label: "Leaves", icon: <Calendar className="h-4 w-4" /> },
-  { id: "promotions", label: "Promotions", icon: <TrendingUp className="h-4 w-4" /> },
-  { id: "notes", label: "Notes", icon: <MessageSquare className="h-4 w-4" /> },
-  { id: "issues", label: "Issues", icon: <MessageSquare className="h-4 w-4" /> },
-];
-
-const statusConfig = {
-  active: { label: "Active", color: "text-success", bg: "bg-success" },
-  on_leave: { label: "On Leave", color: "text-warning", bg: "bg-warning" },
-  remote: { label: "Remote", color: "text-primary", bg: "bg-primary" },
-};
-
-export default function EmployeeProfilePage() {
-  const params = useParams();
-  const [activeTab, setActiveTab] = React.useState<TabId>("overview");
-  const employee = mockEmployee;
-
-  // Promotions state
-  const [promotions, setPromotions] = React.useState<Promotion[]>(initialPromotions);
-  const [isAddPromotionOpen, setIsAddPromotionOpen] = React.useState(false);
-  const [editingPromotion, setEditingPromotion] = React.useState<Promotion | null>(null);
-  const [deletingPromotion, setDeletingPromotion] = React.useState<Promotion | null>(null);
-
-  // Roles state (for admin role assignment)
-  const [employeeRoles, setEmployeeRoles] = React.useState<string[]>(initialEmployeeRoles);
-  const [isRoleModalOpen, setIsRoleModalOpen] = React.useState(false);
-  const [pendingRoles, setPendingRoles] = React.useState<string[]>([]);
-  const [isSavingRoles, setIsSavingRoles] = React.useState(false);
-
-  // Form state
-  const [formDesignation, setFormDesignation] = React.useState("");
-  const [formDate, setFormDate] = React.useState("");
-  const [formNotes, setFormNotes] = React.useState("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [formError, setFormError] = React.useState("");
-
-  // Reset form
-  const resetForm = () => {
-    setFormDesignation("");
-    setFormDate("");
-    setFormNotes("");
-    setFormError("");
-  };
-
-  // Open add modal
-  const openAddModal = () => {
-    resetForm();
-    setIsAddPromotionOpen(true);
-  };
-
-  // Open edit modal
-  const openEditModal = (promotion: Promotion) => {
-    setEditingPromotion(promotion);
-    setFormDesignation(promotion.toRole);
-    setFormDate(promotion.date);
-    setFormNotes(promotion.notes || "");
-    setFormError("");
-  };
-
-  // Close modals
-  const closeAddModal = () => {
-    setIsAddPromotionOpen(false);
-    resetForm();
-  };
-
-  const closeEditModal = () => {
-    setEditingPromotion(null);
-    resetForm();
-  };
-
-  // Add promotion
-  const handleAddPromotion = async () => {
-    if (!formDesignation.trim()) {
-      setFormError("New designation is required");
-      return;
-    }
-    if (!formDate) {
-      setFormError("Effective date is required");
-      return;
-    }
-
-    setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-
-    const currentRole = promotions.length > 0 ? promotions[0].toRole : employee.role;
-
-    const newPromotion: Promotion = {
-      id: `p${Date.now()}`,
-      fromRole: currentRole,
-      toRole: formDesignation.trim(),
-      date: formDate,
-      notes: formNotes.trim() || undefined,
-      addedBy: "HR Manager",
-      addedAt: new Date().toISOString(),
-    };
-
-    setPromotions((prev) => [newPromotion, ...prev]);
-    setIsSubmitting(false);
-    closeAddModal();
-  };
-
-  // Edit promotion
-  const handleEditPromotion = async () => {
-    if (!editingPromotion) return;
-    if (!formDesignation.trim()) {
-      setFormError("New designation is required");
-      return;
-    }
-    if (!formDate) {
-      setFormError("Effective date is required");
-      return;
-    }
-
-    setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-
-    setPromotions((prev) =>
-      prev.map((p) =>
-        p.id === editingPromotion.id
-          ? {
-              ...p,
-              toRole: formDesignation.trim(),
-              date: formDate,
-              notes: formNotes.trim() || undefined,
-            }
-          : p
-      )
-    );
-
-    setIsSubmitting(false);
-    closeEditModal();
-  };
-
-  // Delete promotion
-  const handleDeletePromotion = async () => {
-    if (!deletingPromotion) return;
-    setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-
-    setPromotions((prev) => prev.filter((p) => p.id !== deletingPromotion.id));
-    setIsSubmitting(false);
-    setDeletingPromotion(null);
-  };
-
-  // Get current role for context
-  const currentRole = promotions.length > 0 ? promotions[0].toRole : employee.role;
-
-  // Role management functions
-  const openRoleModal = () => {
-    setPendingRoles([...employeeRoles]);
-    setIsRoleModalOpen(true);
-  };
-
-  const closeRoleModal = () => {
-    setIsRoleModalOpen(false);
-    setPendingRoles([]);
-  };
-
-  const togglePendingRole = (roleId: string) => {
-    setPendingRoles((prev) =>
-      prev.includes(roleId) ? prev.filter((r) => r !== roleId) : [...prev, roleId]
-    );
-  };
-
-  const handleSaveRoles = async () => {
-    setIsSavingRoles(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setEmployeeRoles(pendingRoles);
-    setIsSavingRoles(false);
-    closeRoleModal();
-  };
+  const [sheet, setSheet] = React.useState<ActionSheet>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = React.useState(false);
 
   return (
-    <StaggerContainer className="space-y-6">
-      {/* Header */}
-      <StaggerItem>
-        <div className="flex items-center gap-4">
-          <Link href="/people">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-xl md:text-2xl font-bold text-foreground">
-              Employee Profile
-            </h1>
+    <div className="space-y-6">
+      <PageHeader title="Employee" back />
+
+      <QueryState
+        isLoading={query.isLoading}
+        isError={query.isError}
+        error={query.error}
+        data={query.data}
+        onRetry={() => query.refetch()}
+        skeleton={
+          <div className="space-y-4">
+            <Skeleton className="h-28" />
+            <Skeleton className="h-64" />
           </div>
-          <Button variant="outline" className="gap-2">
-            <Edit className="h-4 w-4" />
-            Edit Profile
-          </Button>
-        </div>
-      </StaggerItem>
-
-      {/* Profile Header */}
-      <StaggerItem>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-6">
-              {/* Avatar & Basic Info */}
-              <div className="flex flex-col items-center md:items-start gap-4">
-                <div className="relative">
-                  <Avatar name={employee.name} size="xl" className="w-24 h-24 text-2xl" />
-                  <span
-                    className={cn(
-                      "absolute bottom-1 right-1 h-5 w-5 rounded-full border-3 border-card",
-                      statusConfig[employee.status].bg
-                    )}
+        }
+      >
+        {(employee) => (
+          <div className="space-y-6">
+            {/* Header */}
+            <Card className="p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-4">
+                  <Avatar
+                    name={employee.full_name}
+                    src={employee.avatar ?? undefined}
+                    size="xl"
+                    className="h-20 w-20 text-xl"
                   />
-                </div>
-              </div>
-
-              {/* Details */}
-              <div className="flex-1 text-center md:text-left">
-                <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2">
-                  <h2 className="text-2xl font-bold text-foreground">{employee.name}</h2>
-                  <Badge className={cn(statusConfig[employee.status].color, `${statusConfig[employee.status].bg}/20`)}>
-                    {statusConfig[employee.status].label}
-                  </Badge>
-                </div>
-                <p className="text-lg text-foreground-muted mb-4">{currentRole}</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                  <div className="flex items-center gap-2 justify-center md:justify-start">
-                    <Building2 className="h-4 w-4 text-foreground-muted" />
-                    <span>{employee.department}</span>
-                  </div>
-                  <div className="flex items-center gap-2 justify-center md:justify-start">
-                    <Mail className="h-4 w-4 text-foreground-muted" />
-                    <span>{employee.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 justify-center md:justify-start">
-                    <MapPin className="h-4 w-4 text-foreground-muted" />
-                    <span>{employee.location}</span>
-                  </div>
-                  <div className="flex items-center gap-2 justify-center md:justify-start">
-                    <Calendar className="h-4 w-4 text-foreground-muted" />
-                    <span>Joined {formatDate(new Date(employee.joinDate))}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </StaggerItem>
-
-      {/* Tabs */}
-      <StaggerItem>
-        <div className="flex gap-2 border-b border-border overflow-x-auto pb-px">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap",
-                "border-b-2 -mb-px",
-                activeTab === tab.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-foreground-muted hover:text-foreground"
-              )}
-            >
-              {tab.icon}
-              {tab.label}
-              {tab.id === "promotions" && promotions.length > 0 && (
-                <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
-                  {promotions.length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </StaggerItem>
-
-      {/* Tab Content */}
-      <div className="min-h-[400px]">
-        {/* Overview Tab */}
-        {activeTab === "overview" && (
-          <StaggerItem>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">About</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-foreground-muted">{employee.bio}</p>
-                  {employee.manager && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <p className="text-sm text-foreground-muted">Reports to</p>
-                      <p className="font-medium text-foreground">{employee.manager}</p>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-bold text-foreground">{employee.full_name}</h2>
+                      <Badge variant={STATUS_TONE[employee.status] ?? "muted"}>
+                        {statusLabel(employee.status)}
+                      </Badge>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Leave Balance</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {leaveBalances.map((balance) => (
-                    <div key={balance.type} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-${balance.color}`}>{balance.icon}</span>
-                        <span className="text-sm">{balance.type}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{balance.remaining}</span>
-                        <span className="text-foreground-muted">/ {balance.total} days</span>
-                      </div>
-                    </div>
-                  ))}
-                  <Button variant="outline" size="sm" className="w-full mt-4 gap-2">
-                    <Plus className="h-4 w-4" />
-                    Adjust Balance
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Roles & Access Section (Admin Only) */}
-            <Card className="mt-6">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-foreground-muted" />
-                  <CardTitle className="text-base">Roles & Access</CardTitle>
-                </div>
-                <Button variant="outline" size="sm" onClick={openRoleModal} className="gap-2">
-                  <Edit className="h-4 w-4" />
-                  Manage Roles
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-foreground-muted mb-4">
-                  Roles determine what this person can see and do in the system.
-                </p>
-                {employeeRoles.length === 0 ? (
-                  <p className="text-sm text-foreground-muted italic">No roles assigned yet.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {employeeRoles.map((roleId) => {
-                      const role = availableRoles.find((r) => r.id === roleId);
-                      if (!role) return null;
-                      return (
-                        <div
-                          key={role.id}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border",
-                            role.color
-                          )}
-                        >
-                          <Shield className="h-4 w-4" />
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{role.name}</p>
-                            <p className="text-xs text-foreground-muted">{role.description}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Impact Summary */}
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-xs font-medium text-foreground-muted mb-2">This person can:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {employeeRoles.includes("employee") && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary-muted/30 text-primary">Submit EODs</span>
-                    )}
-                    {employeeRoles.includes("employee") && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary-muted/30 text-primary">Apply for leave</span>
-                    )}
-                    {employeeRoles.includes("manager") && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent-muted/30 text-accent">Approve team leaves</span>
-                    )}
-                    {employeeRoles.includes("hr") && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-warning-muted/30 text-warning">Manage employees</span>
-                    )}
-                    {employeeRoles.includes("admin") && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-destructive-muted/30 text-destructive">Full access</span>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </StaggerItem>
-        )}
-
-        {/* Leaves Tab */}
-        {activeTab === "leaves" && (
-          <StaggerItem>
-            <div className="space-y-6">
-              {/* Balance Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {leaveBalances.map((balance) => (
-                  <div
-                    key={balance.type}
-                    className={cn(
-                      "p-4 rounded-xl border",
-                      `bg-${balance.color}-muted/30 border-${balance.color}/10`
-                    )}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-${balance.color}`}>{balance.icon}</span>
-                      <span className="text-sm text-foreground-muted">{balance.type} Leave</span>
-                    </div>
-                    <p className="text-2xl font-bold">
-                      <span className={`text-${balance.color}`}>{balance.remaining}</span>
-                      <span className="text-foreground-muted text-base font-normal"> / {balance.total}</span>
+                    <p className="text-foreground-muted">{employee.designation?.name ?? "—"}</p>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground-subtle">
+                      <span className="flex items-center gap-1">
+                        <Building2 className="h-3.5 w-3.5" />
+                        {employee.department?.name ?? "—"}
+                      </span>
+                      <span className="text-xs">{employee.employee_code}</span>
                     </p>
                   </div>
-                ))}
-              </div>
-
-              {/* Leave History */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">Leave History</CardTitle>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Leave
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {leaveHistory.map((leave) => (
-                      <div
-                        key={leave.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-secondary/30"
-                      >
-                        <div>
-                          <p className="font-medium text-foreground">{leave.type} Leave</p>
-                          <p className="text-sm text-foreground-muted">
-                            {formatDate(new Date(leave.startDate))}
-                            {leave.startDate !== leave.endDate && (
-                              <> - {formatDate(new Date(leave.endDate))}</>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="muted">{leave.days}d</Badge>
-                          <Badge
-                            className={cn(
-                              leave.status === "approved" && "bg-success-muted text-success",
-                              leave.status === "pending" && "bg-warning-muted text-warning",
-                              leave.status === "rejected" && "bg-destructive-muted text-destructive"
-                            )}
-                          >
-                            {leave.status.charAt(0).toUpperCase() + leave.status.slice(1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </StaggerItem>
-        )}
-
-        {/* Promotions Tab - Enhanced */}
-        {activeTab === "promotions" && (
-          <StaggerItem>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Award className="h-5 w-5 text-primary" />
-                    Career Journey
-                  </CardTitle>
-                  <p className="text-sm text-foreground-muted mt-1">
-                    {employee.name}'s growth and milestones
-                  </p>
                 </div>
-                <Button className="gap-2" onClick={openAddModal}>
-                  <Plus className="h-4 w-4" />
-                  Add Promotion
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {promotions.length > 0 ? (
-                  <div className="space-y-0">
-                    {promotions.map((promo, index) => (
-                      <div key={promo.id} className="relative pl-8 pb-8 last:pb-0 group">
-                        {/* Timeline line */}
-                        {index < promotions.length - 1 && (
-                          <div className="absolute left-[11px] top-8 bottom-0 w-0.5 bg-gradient-to-b from-success/50 to-border" />
+
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSheet("promote")}>
+                    <TrendingUp className="h-4 w-4" /> Promote
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setSheet("increment")}>
+                    <ArrowUpCircle className="h-4 w-4" /> Increment
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setSheet("edit")}>
+                    <Pencil className="h-4 w-4" /> Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setConfirmDeactivate(true)}
+                    disabled={employee.status === "inactive" || employee.status === "terminated"}
+                  >
+                    <UserX className="h-4 w-4" /> Deactivate
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Personal Info */}
+              <Section title="Personal Info">
+                <Field label="Full Name" value={employee.full_name} />
+                <Field label="Father's Name" value={employee.father_name} />
+                <Field label="Gender" value={labelize(employee.gender)} />
+                <Field label="Date of Birth" value={dateOrDash(employee.dob)} />
+                <Field label="CNIC" value={employee.cnic} />
+                <Field label="Email" value={employee.email} icon={<Mail className="h-3.5 w-3.5" />} />
+                <Field label="Personal Email" value={employee.personal_email} />
+                <Field label="Phone" value={employee.phone} icon={<Phone className="h-3.5 w-3.5" />} />
+                <Field label="Role" value={ROLE_LABELS[employee.role as keyof typeof ROLE_LABELS] ?? labelize(employee.role)} />
+              </Section>
+
+              {/* Employment (read-only) */}
+              <Section title="Employment">
+                <Field label="Designation" value={employee.designation?.name} />
+                <Field label="Department" value={employee.department?.name} />
+                <Field
+                  label="Employment Type"
+                  value={
+                    EMPLOYMENT_TYPE_LABELS[
+                      employee.employment?.employment_type as keyof typeof EMPLOYMENT_TYPE_LABELS
+                    ] ?? labelize(employee.employment?.employment_type)
+                  }
+                />
+                <Field label="Date of Joining" value={dateOrDash(employee.employment?.joined_at)} />
+                <Field label="Manager" value={employee.manager?.full_name} />
+              </Section>
+
+              {/* Bank Details */}
+              <Section title="Bank Details" icon={<Landmark className="h-4 w-4 text-foreground-muted" />}>
+                <Field label="Bank Name" value={employee.bank_name} />
+                <Field label="Account Number" value={employee.account_number} />
+                <Field label="Payment Method" value={labelize(employee.payment_method)} />
+              </Section>
+
+              {/* Emergency Contact */}
+              <Section
+                title="Emergency Contact"
+                icon={<ShieldAlert className="h-4 w-4 text-foreground-muted" />}
+              >
+                <Field label="Name" value={employee.emergency_contact?.name} />
+                <Field label="Phone" value={employee.emergency_contact?.phone} />
+                <Field label="Relation" value={labelize(employee.emergency_contact?.relation)} />
+              </Section>
+            </div>
+
+            {/* Documents */}
+            <Section title="Documents" icon={<FileText className="h-4 w-4 text-foreground-muted" />} full>
+              <div className="col-span-full grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <DocumentImage label="CNIC Front" src={employee.cnic_front_image} />
+                <DocumentImage label="CNIC Back" src={employee.cnic_back_image} />
+                <DocumentLink label="Contract" href={employee.contract_document} />
+              </div>
+            </Section>
+
+            {/* Salary & Promotion */}
+            <SalarySection employee={employee} />
+
+            {/* Perks */}
+            <Section title="Perks" icon={<Gift className="h-4 w-4 text-foreground-muted" />} full>
+              {employee.perks && employee.perks.length > 0 ? (
+                <div className="col-span-full grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {employee.perks.map((perk, i) => (
+                    <div key={i} className="rounded-[var(--radius)] border border-border bg-secondary/30 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium text-foreground">{perk.title}</p>
+                        {perk.status && (
+                          <Badge variant="muted" className="text-xs">
+                            {labelize(perk.status)}
+                          </Badge>
                         )}
-                        {/* Timeline dot with sparkle effect */}
-                        <div className="absolute left-0 top-1 flex items-center justify-center">
-                          <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center">
-                            <Sparkles className="h-3.5 w-3.5 text-success" />
-                          </div>
-                        </div>
-
-                        <div className="p-4 rounded-xl bg-gradient-to-br from-success-muted/30 to-transparent border border-success/10 hover:border-success/20 transition-colors">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              {/* Role transition */}
-                              <div className="flex flex-wrap items-center gap-2 mb-2">
-                                <span className="text-sm text-foreground-muted">
-                                  {promo.fromRole}
-                                </span>
-                                <TrendingUp className="h-4 w-4 text-success shrink-0" />
-                                <span className="font-semibold text-foreground">
-                                  {promo.toRole}
-                                </span>
-                              </div>
-
-                              {/* Date */}
-                              <p className="text-sm text-foreground-muted mb-3">
-                                <Calendar className="h-3.5 w-3.5 inline mr-1" />
-                                {formatDate(new Date(promo.date))}
-                              </p>
-
-                              {/* Notes */}
-                              {promo.notes && (
-                                <p className="text-sm text-foreground bg-background/50 p-3 rounded-lg border border-border/50">
-                                  {promo.notes}
-                                </p>
-                              )}
-
-                              {/* Added by */}
-                              <p className="text-xs text-foreground-subtle mt-3">
-                                Added by {promo.addedBy}
-                              </p>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => openEditModal(promo)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                className="text-destructive hover:text-destructive hover:bg-destructive-muted"
-                                onClick={() => setDeletingPromotion(promo)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
                       </div>
-                    ))}
-
-                    {/* Starting point */}
-                    <div className="relative pl-8">
-                      <div className="absolute left-0 top-1 flex items-center justify-center">
-                        <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                          <User className="h-3.5 w-3.5 text-foreground-muted" />
-                        </div>
-                      </div>
-                      <div className="p-4 rounded-xl bg-secondary/30">
-                        <p className="text-sm text-foreground-muted">
-                          Joined as <span className="font-medium text-foreground">{promotions[promotions.length - 1]?.fromRole || "Team Member"}</span>
-                        </p>
-                        <p className="text-xs text-foreground-subtle mt-1">
-                          <Calendar className="h-3 w-3 inline mr-1" />
-                          {formatDate(new Date(employee.joinDate))}
-                        </p>
-                      </div>
+                      {perk.description && (
+                        <p className="mt-1 text-sm text-foreground-muted">{perk.description}</p>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={TrendingUp}
-                    title="No promotions recorded yet"
-                    description={`Record ${employee.name}'s career milestones and growth here.`}
-                    action={{
-                      label: "Add First Promotion",
-                      onClick: openAddModal,
-                    }}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </StaggerItem>
-        )}
+                  ))}
+                </div>
+              ) : (
+                <p className="col-span-full text-sm text-foreground-muted">No perks recorded.</p>
+              )}
+            </Section>
 
-        {/* Notes Tab */}
-        {activeTab === "notes" && (
-          <StaggerItem>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">HR Notes</CardTitle>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Note
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {hrNotes.length > 0 ? (
-                  <div className="space-y-4">
-                    {hrNotes.map((note) => (
-                      <div
-                        key={note.id}
-                        className={cn(
-                          "p-4 rounded-lg",
-                          note.isPrivate ? "bg-warning-muted/20 border border-warning/10" : "bg-secondary/30"
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground">{note.author}</span>
-                            {note.isPrivate && (
-                              <Badge variant="outline" className="text-xs text-warning">
-                                Private
-                              </Badge>
-                            )}
-                          </div>
-                          <span className="text-xs text-foreground-subtle">
-                            {formatDate(new Date(note.createdAt))}
-                          </span>
-                        </div>
-                        <p className="text-sm text-foreground">{note.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-foreground-muted">
-                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No notes yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </StaggerItem>
-        )}
+            {/* Action sheets */}
+            <EditEmployeeSheet
+              open={sheet === "edit"}
+              onClose={() => setSheet(null)}
+              employee={employee}
+              designationOptions={designationOptions}
+              departmentOptions={departmentOptions}
+              managerOptions={managerOptions}
+              isPending={update.isPending}
+              onSubmit={(body) =>
+                update.mutate(body, { onSuccess: () => setSheet(null) })
+              }
+            />
 
-        {/* Issues Tab */}
-        {activeTab === "issues" && (
-          <StaggerItem>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Related HR Issues</CardTitle>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Open Issue
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {relatedIssues.length > 0 ? (
-                  <div className="space-y-3">
-                    {relatedIssues.map((issue) => (
-                      <Link key={issue.id} href={`/hr/issues/${issue.id}`}>
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer">
-                          <div>
-                            <p className="font-medium text-foreground">{issue.title}</p>
-                            <p className="text-sm text-foreground-muted">
-                              {formatDate(new Date(issue.date))}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              className={cn(
-                                issue.status === "resolved"
-                                  ? "bg-success-muted text-success"
-                                  : "bg-warning-muted text-warning"
-                              )}
-                            >
-                              {issue.status.charAt(0).toUpperCase() + issue.status.slice(1)}
-                            </Badge>
-                            <ChevronRight className="h-4 w-4 text-foreground-subtle" />
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-foreground-muted">
-                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No related issues</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </StaggerItem>
+            <PromoteSheet
+              open={sheet === "promote"}
+              onClose={() => setSheet(null)}
+              designationOptions={designationOptions}
+              isPending={promote.isPending}
+              onSubmit={(body) =>
+                promote.mutate(body, { onSuccess: () => setSheet(null) })
+              }
+            />
+
+            <IncrementSheet
+              open={sheet === "increment"}
+              onClose={() => setSheet(null)}
+              isPending={increment.isPending}
+              onSubmit={(body) =>
+                increment.mutate(body, { onSuccess: () => setSheet(null) })
+              }
+            />
+
+            <ConfirmModal
+              open={confirmDeactivate}
+              onClose={() => setConfirmDeactivate(false)}
+              onConfirm={() =>
+                deactivate.mutate(undefined, { onSettled: () => setConfirmDeactivate(false) })
+              }
+              title="Deactivate employee?"
+              description={`${employee.full_name} will lose access and be marked inactive.`}
+              confirmLabel="Deactivate"
+              variant="destructive"
+              isLoading={deactivate.isPending}
+            />
+          </div>
         )}
+      </QueryState>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Display helpers                                                     */
+/* ------------------------------------------------------------------ */
+
+function dateOrDash(v?: string | null) {
+  return v ? formatOrdinalDate(v) : "—";
+}
+
+function Section({
+  title,
+  icon,
+  full,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  full?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className={full ? "p-5" : "p-5"}>
+      <div className="mb-4 flex items-center gap-2">
+        {icon}
+        <h3 className="font-semibold text-foreground">{title}</h3>
+      </div>
+      <div className={full ? "" : "grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2"}>
+        {children}
+      </div>
+    </Card>
+  );
+}
+
+function Field({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value?: string | null;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-foreground-muted">
+        {label}
+      </p>
+      <p className="flex items-center gap-1.5 text-sm text-foreground">
+        {icon}
+        <span className="break-words">{value || "—"}</span>
+      </p>
+    </div>
+  );
+}
+
+function DocumentImage({ label, src }: { label: string; src?: string | null }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-foreground-muted">
+        {label}
+      </p>
+      {src ? (
+        <a href={src} target="_blank" rel="noopener noreferrer" className="block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt={label}
+            className="h-36 w-full rounded-[var(--radius)] border border-border object-cover transition-opacity hover:opacity-90"
+          />
+        </a>
+      ) : (
+        <div className="flex h-36 w-full items-center justify-center rounded-[var(--radius)] border border-dashed border-border text-sm text-foreground-subtle">
+          Not uploaded
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocumentLink({ label, href }: { label: string; href?: string | null }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-foreground-muted">
+        {label}
+      </p>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-36 w-full flex-col items-center justify-center gap-2 rounded-[var(--radius)] border border-border text-sm text-primary transition-colors hover:bg-secondary/40"
+        >
+          <FileText className="h-6 w-6" />
+          View document
+        </a>
+      ) : (
+        <div className="flex h-36 w-full items-center justify-center rounded-[var(--radius)] border border-dashed border-border text-sm text-foreground-subtle">
+          Not uploaded
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SalarySection({ employee }: { employee: EmployeeInfo }) {
+  const components = employee.salary?.components ?? [];
+  const gross = components.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+  const history = [...(employee.salary_history ?? [])].sort(
+    (a, b) => new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime()
+  );
+
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-foreground-muted" />
+        <h3 className="font-semibold text-foreground">Salary &amp; Promotion</h3>
       </div>
 
-      {/* Add Promotion Modal */}
-      <Modal
-        open={isAddPromotionOpen}
-        onClose={closeAddModal}
-        title="Add Promotion"
-        description={`Record a career milestone for ${employee.name}`}
-        size="md"
-      >
-        <div className="space-y-4">
-          {/* Current role context */}
-          <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-            <p className="text-sm text-foreground-muted">Current Role</p>
-            <p className="font-medium text-foreground">{currentRole}</p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              New Designation <span className="text-destructive">*</span>
-            </label>
-            <Input
-              value={formDesignation}
-              onChange={(e) => {
-                setFormDesignation(e.target.value);
-                setFormError("");
-              }}
-              placeholder="e.g., Tech Lead"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Effective Date <span className="text-destructive">*</span>
-            </label>
-            <Input
-              type="date"
-              value={formDate}
-              onChange={(e) => {
-                setFormDate(e.target.value);
-                setFormError("");
-              }}
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Notes
-            </label>
-            <Textarea
-              value={formNotes}
-              onChange={(e) => setFormNotes(e.target.value)}
-              placeholder="What led to this promotion? Any context worth noting..."
-              className="min-h-[100px] resize-none"
-            />
-            <p className="text-xs text-foreground-subtle mt-1">
-              Share the story behind this milestone
-            </p>
-          </div>
-
-          {formError && (
-            <p className="text-sm text-destructive">{formError}</p>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={closeAddModal}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1 gap-2"
-              onClick={handleAddPromotion}
-              isLoading={isSubmitting}
-            >
-              {!isSubmitting && (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Save Promotion
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Edit Promotion Modal */}
-      <Modal
-        open={!!editingPromotion}
-        onClose={closeEditModal}
-        title="Edit Promotion"
-        description="Update promotion details"
-        size="md"
-      >
-        <div className="space-y-4">
-          {/* Previous role context */}
-          {editingPromotion && (
-            <div className="p-3 rounded-lg bg-secondary/50 border border-border">
-              <p className="text-sm text-foreground-muted">Previous Role</p>
-              <p className="font-medium text-foreground">{editingPromotion.fromRole}</p>
-            </div>
-          )}
-
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              New Designation <span className="text-destructive">*</span>
-            </label>
-            <Input
-              value={formDesignation}
-              onChange={(e) => {
-                setFormDesignation(e.target.value);
-                setFormError("");
-              }}
-              placeholder="e.g., Tech Lead"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Effective Date <span className="text-destructive">*</span>
-            </label>
-            <Input
-              type="date"
-              value={formDate}
-              onChange={(e) => {
-                setFormDate(e.target.value);
-                setFormError("");
-              }}
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Notes
-            </label>
-            <Textarea
-              value={formNotes}
-              onChange={(e) => setFormNotes(e.target.value)}
-              placeholder="What led to this promotion? Any context worth noting..."
-              className="min-h-[100px] resize-none"
-            />
-          </div>
-
-          {formError && (
-            <p className="text-sm text-destructive">{formError}</p>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={closeEditModal}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleEditPromotion}
-              isLoading={isSubmitting}
-            >
-              {!isSubmitting && "Save Changes"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        open={!!deletingPromotion}
-        onClose={() => setDeletingPromotion(null)}
-        onConfirm={handleDeletePromotion}
-        title="Delete Promotion Record?"
-        description={`This will remove the promotion to "${deletingPromotion?.toRole}" from ${employee.name}'s career history.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        isLoading={isSubmitting}
-      />
-
-      {/* Role Assignment Modal */}
-      <Modal
-        open={isRoleModalOpen}
-        onClose={closeRoleModal}
-        title="Manage Roles"
-        description={`Select roles for ${employee.name}`}
-        size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-foreground-muted">
-            A person can have multiple roles. Changes take effect immediately after saving.
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Breakdown */}
+        <div>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground-muted">
+            Current Breakdown
           </p>
-
-          {/* Role Selection */}
-          <div className="space-y-2">
-            {availableRoles.map((role) => {
-              const isSelected = pendingRoles.includes(role.id);
-              return (
-                <button
-                  key={role.id}
-                  onClick={() => togglePendingRole(role.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
-                    isSelected
-                      ? "bg-primary-muted/30 border-primary/30"
-                      : "bg-secondary/30 border-border hover:border-primary/20"
-                  )}
-                >
-                  <div className={cn(
-                    "h-5 w-5 rounded border-2 flex items-center justify-center transition-colors shrink-0",
-                    isSelected ? "bg-primary border-primary" : "border-border"
-                  )}>
-                    {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                  </div>
-                  <div className={cn("flex-1", role.color)}>
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4" />
-                      <p className="font-medium text-foreground">{role.name}</p>
-                    </div>
-                    <p className="text-xs text-foreground-muted">{role.description}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Changes Summary */}
-          {JSON.stringify(pendingRoles.sort()) !== JSON.stringify(employeeRoles.sort()) && (
-            <div className="p-3 rounded-lg bg-warning-muted/20 border border-warning/10">
-              <p className="text-sm text-foreground">
-                <span className="font-medium">Changes:</span>{" "}
-                {pendingRoles.length > employeeRoles.length
-                  ? `Adding ${pendingRoles.filter((r) => !employeeRoles.includes(r)).map((r) => availableRoles.find((ar) => ar.id === r)?.name).join(", ")}`
-                  : pendingRoles.length < employeeRoles.length
-                  ? `Removing ${employeeRoles.filter((r) => !pendingRoles.includes(r)).map((r) => availableRoles.find((ar) => ar.id === r)?.name).join(", ")}`
-                  : "Role changes"}
-              </p>
+          {components.length > 0 ? (
+            <div className="space-y-2">
+              {components.map((c, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-foreground-muted">{c.label ?? labelize(c.type)}</span>
+                  <span className="font-medium text-foreground">{formatMoney(c.amount)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between border-t border-border pt-2 text-sm">
+                <span className="font-semibold text-foreground">Gross</span>
+                <span className="font-semibold text-foreground">{formatMoney(gross)}</span>
+              </div>
             </div>
+          ) : (
+            <p className="text-sm text-foreground-muted">No salary structure recorded.</p>
           )}
+        </div>
 
-          {pendingRoles.length === 0 && (
-            <p className="text-sm text-destructive">
-              At least one role must be selected.
-            </p>
+        {/* History timeline */}
+        <div>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground-muted">
+            Salary History
+          </p>
+          {history.length > 0 ? (
+            <div className="space-y-0">
+              {history.map((h, i) => (
+                <div key={i} className="relative pb-5 pl-6 last:pb-0">
+                  {i < history.length - 1 && (
+                    <span className="absolute left-[5px] top-3 h-full w-0.5 bg-border" />
+                  )}
+                  <span className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-foreground">{formatMoney(h.amount)}</span>
+                    <Badge variant="muted" className="text-xs">
+                      {SALARY_REVISION_LABELS[h.type as keyof typeof SALARY_REVISION_LABELS] ??
+                        labelize(h.type)}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-foreground-subtle">
+                    {formatOrdinalDate(h.effective_date)}
+                    {h.designation ? ` · ${h.designation}` : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-foreground-muted">No revisions yet.</p>
           )}
+        </div>
+      </div>
+    </Card>
+  );
+}
 
-          <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1" onClick={closeRoleModal}>
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleSaveRoles}
-              disabled={pendingRoles.length === 0 || isSavingRoles}
-            >
-              {isSavingRoles ? "Saving..." : "Save Roles"}
-            </Button>
+/* ------------------------------------------------------------------ */
+/* Edit sheet                                                          */
+/* ------------------------------------------------------------------ */
+
+const editSchema = z.object({
+  full_name: z.string().min(1, "Name is required"),
+  email: z.string().min(1, "Email is required").email("Enter a valid email"),
+  phone: z.string().min(1, "Phone is required"),
+  cnic: z.string().optional(),
+  personal_email: z.string().email("Enter a valid email").optional().or(z.literal("")),
+  gender: z.string().optional(),
+  role: z.string().optional(),
+  employment_type: z.string().optional(),
+  department_id: z.string().optional(),
+  designation_id: z.string().optional(),
+  manager_id: z.string().optional(),
+  bank_name: z.string().optional(),
+  account_number: z.string().optional(),
+  payment_method: z.string().optional(),
+  ec_name: z.string().optional(),
+  ec_phone: z.string().optional(),
+  ec_relation: z.string().optional(),
+  dob: z.string().optional(),
+  joined_at: z.string().optional(),
+});
+type EditValues = z.infer<typeof editSchema>;
+
+interface Opt {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+function EditEmployeeSheet({
+  open,
+  onClose,
+  employee,
+  designationOptions,
+  departmentOptions,
+  managerOptions,
+  isPending,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  employee: EmployeeInfo;
+  designationOptions: Opt[];
+  departmentOptions: Opt[];
+  managerOptions: Opt[];
+  isPending: boolean;
+  onSubmit: (body: import("@/lib/api/employees").UpdateEmployeeBody) => void;
+}) {
+  const enums = useEnums();
+  const genderOptions = toOptions(enums.data?.gender);
+  const paymentOptions = toOptions(enums.data?.payment_method);
+  const roleOptions = toOptions(enums.data?.roles, ROLE_LABELS);
+  const employmentOptions = toOptions(enums.data?.employment_type, EMPLOYMENT_TYPE_LABELS);
+
+  const { control, register, handleSubmit, reset, formState: { errors } } = useForm<EditValues>({
+    resolver: zodResolver(editSchema),
+  });
+
+  React.useEffect(() => {
+    if (open) {
+      reset({
+        full_name: employee.full_name ?? "",
+        email: employee.email ?? "",
+        phone: employee.phone ?? "",
+        cnic: employee.cnic ?? "",
+        personal_email: employee.personal_email ?? "",
+        gender: employee.gender ?? "",
+        role: (employee.role as string) ?? "",
+        employment_type: (employee.employment?.employment_type as string) ?? "",
+        department_id: employee.department?.id ?? "",
+        designation_id: employee.designation?.id ?? "",
+        manager_id: employee.manager?.id ?? "",
+        bank_name: employee.bank_name ?? "",
+        account_number: employee.account_number ?? "",
+        payment_method: employee.payment_method ?? "",
+        ec_name: employee.emergency_contact?.name ?? "",
+        ec_phone: employee.emergency_contact?.phone ?? "",
+        ec_relation: employee.emergency_contact?.relation ?? "",
+        dob: employee.dob ?? "",
+        joined_at: employee.employment?.joined_at ?? "",
+      });
+    }
+  }, [open, employee, reset]);
+
+  const submit = handleSubmit((v) => {
+    onSubmit({
+      full_name: v.full_name,
+      email: v.email,
+      phone: v.phone,
+      cnic: v.cnic || undefined,
+      personal_email: v.personal_email || undefined,
+      gender: v.gender || undefined,
+      role: v.role || undefined,
+      employment_type: v.employment_type || undefined,
+      department_id: v.department_id || undefined,
+      designation_id: v.designation_id || undefined,
+      manager_id: v.manager_id || undefined,
+      bank_name: v.bank_name || undefined,
+      account_number: v.account_number || undefined,
+      payment_method: v.payment_method || undefined,
+      dob: v.dob || undefined,
+      joined_at: v.joined_at || undefined,
+      emergency_contact:
+        v.ec_name || v.ec_phone || v.ec_relation
+          ? { name: v.ec_name ?? "", phone: v.ec_phone ?? "", relation: v.ec_relation ?? "" }
+          : undefined,
+    });
+  });
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Edit Employee" size="lg">
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <TextField label="Full Name" required error={errors.full_name?.message} {...register("full_name")} />
+          <TextField label="Email" required error={errors.email?.message} {...register("email")} />
+          <TextField label="Phone" required error={errors.phone?.message} {...register("phone")} />
+          <TextField label="CNIC" {...register("cnic")} />
+          <TextField label="Personal Email" error={errors.personal_email?.message} {...register("personal_email")} />
+          <SelectField control={control} name="gender" label="Gender" options={genderOptions} />
+          <SelectField control={control} name="role" label="Role" options={roleOptions} />
+          <SelectField control={control} name="employment_type" label="Employment Type" options={employmentOptions} />
+          <SelectField control={control} name="department_id" label="Department" options={departmentOptions} />
+          <SelectField control={control} name="designation_id" label="Designation" options={designationOptions} />
+          <SelectField control={control} name="manager_id" label="Manager" options={managerOptions} />
+          <DateField control={control} name="dob" label="Date of Birth" />
+          <DateField control={control} name="joined_at" label="Date of Joining" />
+        </div>
+
+        <div>
+          <p className="mb-3 text-sm font-semibold text-foreground">Bank Details</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <TextField label="Bank Name" {...register("bank_name")} />
+            <TextField label="Account Number" {...register("account_number")} />
+            <SelectField control={control} name="payment_method" label="Payment Method" options={paymentOptions} />
           </div>
         </div>
-      </Modal>
-    </StaggerContainer>
+
+        <div>
+          <p className="mb-3 text-sm font-semibold text-foreground">Emergency Contact</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <TextField label="Name" {...register("ec_name")} />
+            <TextField label="Phone" {...register("ec_phone")} />
+            <TextField label="Relation" {...register("ec_relation")} />
+          </div>
+        </div>
+      </div>
+
+      <SheetFooter>
+        <Button variant="outline" onClick={onClose} disabled={isPending}>
+          Cancel
+        </Button>
+        <Button onClick={submit} isLoading={isPending}>
+          Save Changes
+        </Button>
+      </SheetFooter>
+    </Sheet>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Promote sheet                                                       */
+/* ------------------------------------------------------------------ */
+
+const promoteSchema = z.object({
+  new_salary: z.string().min(1, "New salary is required"),
+  effective_date: z.string().min(1, "Please select a date"),
+  designation_id: z.string().optional(),
+});
+type PromoteValues = z.infer<typeof promoteSchema>;
+
+function PromoteSheet({
+  open,
+  onClose,
+  designationOptions,
+  isPending,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  designationOptions: Opt[];
+  isPending: boolean;
+  onSubmit: (body: import("@/lib/api/employees").PromoteBody) => void;
+}) {
+  const { control, register, handleSubmit, reset, formState: { errors } } = useForm<PromoteValues>({
+    resolver: zodResolver(promoteSchema),
+    defaultValues: { new_salary: "", effective_date: "", designation_id: "" },
+  });
+
+  React.useEffect(() => {
+    if (open) reset({ new_salary: "", effective_date: "", designation_id: "" });
+  }, [open, reset]);
+
+  const submit = handleSubmit((v) =>
+    onSubmit({
+      new_salary: parseAmount(v.new_salary),
+      effective_date: v.effective_date,
+      designation_id: v.designation_id || undefined,
+    })
+  );
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Promote Employee" size="md">
+      <div className="space-y-4">
+        <TextField
+          label="New Salary"
+          required
+          inputMode="numeric"
+          placeholder="e.g. 250000"
+          error={errors.new_salary?.message}
+          {...register("new_salary")}
+        />
+        <SelectField
+          control={control}
+          name="designation_id"
+          label="New Designation (optional)"
+          options={designationOptions}
+        />
+        <DateField
+          control={control}
+          name="effective_date"
+          label="Effective Date"
+          required
+          error={errors.effective_date?.message}
+        />
+      </div>
+      <SheetFooter>
+        <Button variant="outline" onClick={onClose} disabled={isPending}>
+          Cancel
+        </Button>
+        <Button onClick={submit} isLoading={isPending}>
+          <TrendingUp className="h-4 w-4" /> Promote
+        </Button>
+      </SheetFooter>
+    </Sheet>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Increment sheet                                                     */
+/* ------------------------------------------------------------------ */
+
+const incrementSchema = z.object({
+  new_salary: z.string().min(1, "New salary is required"),
+  effective_date: z.string().min(1, "Please select a date"),
+});
+type IncrementValues = z.infer<typeof incrementSchema>;
+
+function IncrementSheet({
+  open,
+  onClose,
+  isPending,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  isPending: boolean;
+  onSubmit: (body: import("@/lib/api/employees").IncrementBody) => void;
+}) {
+  const { control, register, handleSubmit, reset, formState: { errors } } = useForm<IncrementValues>({
+    resolver: zodResolver(incrementSchema),
+    defaultValues: { new_salary: "", effective_date: "" },
+  });
+
+  React.useEffect(() => {
+    if (open) reset({ new_salary: "", effective_date: "" });
+  }, [open, reset]);
+
+  const submit = handleSubmit((v) =>
+    onSubmit({ new_salary: parseAmount(v.new_salary), effective_date: v.effective_date })
+  );
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Salary Increment" size="md">
+      <div className="space-y-4">
+        <TextField
+          label="New Salary"
+          required
+          inputMode="numeric"
+          placeholder="e.g. 220000"
+          error={errors.new_salary?.message}
+          {...register("new_salary")}
+        />
+        <DateField
+          control={control}
+          name="effective_date"
+          label="Effective Date"
+          required
+          error={errors.effective_date?.message}
+        />
+      </div>
+      <SheetFooter>
+        <Button variant="outline" onClick={onClose} disabled={isPending}>
+          Cancel
+        </Button>
+        <Button onClick={submit} isLoading={isPending}>
+          <ArrowUpCircle className="h-4 w-4" /> Apply Increment
+        </Button>
+      </SheetFooter>
+    </Sheet>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared form fields                                                  */
+/* ------------------------------------------------------------------ */
+
+const TextField = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { label: string; required?: boolean; error?: string }
+>(({ label, required, error, ...props }, ref) => (
+  <div>
+    <Label className="mb-2 block" required={required}>
+      {label}
+    </Label>
+    <Input ref={ref} error={error} {...props} />
+  </div>
+));
+TextField.displayName = "TextField";
+
+function SelectField({
+  control,
+  name,
+  label,
+  options,
+  required,
+  error,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  control: any;
+  name: string;
+  label: string;
+  options: Opt[];
+  required?: boolean;
+  error?: string;
+}) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <Select
+          label={label + (required ? " *" : "")}
+          options={options}
+          value={field.value}
+          onChange={field.onChange}
+          error={error}
+          placeholder="Select an option"
+        />
+      )}
+    />
+  );
+}
+
+function DateField({
+  control,
+  name,
+  label,
+  required,
+  error,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  control: any;
+  name: string;
+  label: string;
+  required?: boolean;
+  error?: string;
+}) {
+  return (
+    <div>
+      <Label className="mb-2 block" required={required}>
+        {label}
+      </Label>
+      <Controller
+        control={control}
+        name={name}
+        render={({ field }) => (
+          <DatePicker
+            value={field.value ? new Date(field.value) : null}
+            onChange={(d) => field.onChange(d ? toWireDate(d) : "")}
+            error={error}
+          />
+        )}
+      />
+    </div>
   );
 }

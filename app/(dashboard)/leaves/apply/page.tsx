@@ -1,375 +1,339 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowLeft,
-  Palmtree,
-  Stethoscope,
-  Coffee,
-  Calendar,
-  Clock,
-  Send,
-  AlertCircle,
-  CheckCircle2,
-  Info,
-} from "lucide-react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Send, AlertTriangle } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { ToggleGroup } from "@/components/ui/radio-group";
-import { LeaveBalanceCard } from "@/components/leave";
-import { StaggerContainer, StaggerItem } from "@/components/animations/fade-in";
-import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { RadioGroup } from "@/components/ui/radio-group";
+import { DatePicker } from "@/components/ui/date-picker";
+import { PageHeader } from "@/components/shared/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/ui/empty-state";
+import {
+  LEAVE_DURATION_LABELS,
+  HALF_DAY_LABELS,
+  type LeaveDuration,
+} from "@/lib/enums";
+import { toWireDate } from "@/lib/format";
+import { useApplyLeave } from "./use-apply-leave";
+import type { LeaveTypeModel } from "@/types";
 
-// Mock leave balances
-const leaveTypes = [
-  {
-    id: "annual",
-    type: "Annual Leave",
-    icon: <Palmtree className="h-5 w-5" />,
-    remaining: 18,
-    total: 21,
-    color: "primary" as const,
-    description: "For vacations and personal time",
-  },
-  {
-    id: "sick",
-    type: "Sick Leave",
-    icon: <Stethoscope className="h-5 w-5" />,
-    remaining: 8,
-    total: 10,
-    color: "warning" as const,
-    description: "For medical appointments and illness",
-  },
-  {
-    id: "casual",
-    type: "Casual Leave",
-    icon: <Coffee className="h-5 w-5" />,
-    remaining: 3,
-    total: 5,
-    color: "accent" as const,
-    description: "For short personal matters",
-  },
-];
+const schema = z
+  .object({
+    leave_type_id: z.string().min(1, "Please select a leave type"),
+    duration: z.enum(["full_day", "half_day", "multiple_days"]),
+    half_day: z.enum(["am", "pm"]).nullable().optional(),
+    start_date: z.date().nullable(),
+    end_date: z.date().nullable().optional(),
+    reason: z.string().trim().min(1, "Please provide a reason"),
+  })
+  .superRefine((val, ctx) => {
+    if (!val.start_date) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["start_date"],
+        message: "Please select a start date",
+      });
+    }
+    if (val.duration === "half_day" && !val.half_day) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["half_day"],
+        message: "Please select a half-day period",
+      });
+    }
+    if (val.duration === "multiple_days") {
+      if (!val.end_date) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["end_date"],
+          message: "Please select an end date",
+        });
+      } else if (val.start_date && val.end_date < val.start_date) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["end_date"],
+          message: "End date must be after the start date",
+        });
+      }
+    }
+  });
 
-const dayTypeOptions = [
-  { value: "full", label: "Full Day" },
-  { value: "half-am", label: "Half Day (AM)" },
-  { value: "half-pm", label: "Half Day (PM)" },
-];
+type FormValues = z.infer<typeof schema>;
 
-function countBusinessDays(start: Date, end: Date): number {
-  let count = 0;
-  const current = new Date(start);
-  while (current <= end) {
-    const day = current.getDay();
-    if (day !== 0 && day !== 6) count++;
-    current.setDate(current.getDate() + 1);
+const DURATION_OPTIONS = (["full_day", "half_day", "multiple_days"] as LeaveDuration[]).map(
+  (value) => ({ value, label: LEAVE_DURATION_LABELS[value] })
+);
+
+const HALF_DAY_OPTIONS = (["am", "pm"] as const).map((value) => ({
+  value,
+  label: HALF_DAY_LABELS[value],
+}));
+
+function daysInclusive(a: Date, b: Date): number {
+  const diff = Math.abs(b.getTime() - a.getTime());
+  return Math.floor(diff / 86_400_000) + 1;
+}
+
+function typeDescription(t: LeaveTypeModel): string | undefined {
+  if (typeof t.remaining === "number" && typeof t.quota === "number") {
+    return `${t.remaining} of ${t.quota} days remaining`;
   }
-  return count;
+  if (typeof t.remaining === "number") return `${t.remaining} days remaining`;
+  if (t.eligible === false && t.ineligible_reason) return t.ineligible_reason;
+  return t.paid === false ? "Unpaid leave" : undefined;
 }
 
 export default function ApplyLeavePage() {
-  const router = useRouter();
+  const { types, apply } = useApplyLeave();
 
-  // Form state
-  const [selectedType, setSelectedType] = React.useState<string | null>(null);
-  const [dateRange, setDateRange] = React.useState<{ start: Date | null; end: Date | null }>({
-    start: null,
-    end: null,
+  const {
+    control,
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      leave_type_id: "",
+      duration: "full_day",
+      half_day: null,
+      start_date: null,
+      end_date: null,
+      reason: "",
+    },
   });
-  const [dayType, setDayType] = React.useState("full");
-  const [reason, setReason] = React.useState("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [showSuccess, setShowSuccess] = React.useState(false);
 
-  // Derived values
-  const selectedLeave = leaveTypes.find((l) => l.id === selectedType);
-  const daysRequested = dateRange.start && dateRange.end
-    ? dayType === "full"
-      ? countBusinessDays(dateRange.start, dateRange.end)
-      : 0.5
-    : 0;
+  const duration = watch("duration");
+  const leaveTypeId = watch("leave_type_id");
+  const startDate = watch("start_date");
+  const endDate = watch("end_date");
 
-  const hasInsufficientBalance = selectedLeave && daysRequested > selectedLeave.remaining;
-  const isValid = selectedType && dateRange.start && dateRange.end && !hasInsufficientBalance;
+  const typeOptions = React.useMemo(
+    () =>
+      (types.data ?? []).map((t) => ({
+        value: t.leave_type_id,
+        label: t.name,
+        description: typeDescription(t),
+      })),
+    [types.data]
+  );
 
-  // Calculate the new balance after this request
-  const newBalance = selectedLeave ? selectedLeave.remaining - daysRequested : 0;
+  const selectedType = React.useMemo(
+    () => (types.data ?? []).find((t) => t.leave_type_id === leaveTypeId),
+    [types.data, leaveTypeId]
+  );
 
-  // Handle form submit
-  const handleSubmit = async () => {
-    if (!isValid) return;
+  const totalDays = React.useMemo(() => {
+    if (duration === "half_day") return 0.5;
+    if (duration === "multiple_days") {
+      return startDate && endDate ? daysInclusive(startDate, endDate) : 0;
+    }
+    return startDate ? 1 : 0;
+  }, [duration, startDate, endDate]);
 
-    setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setShowSuccess(true);
+  const remaining = selectedType?.remaining;
+  const showUnpaidWarning =
+    typeof remaining === "number" && totalDays > 0 && remaining < totalDays;
 
-    // Redirect after success animation
-    setTimeout(() => {
-      router.push("/leaves");
-    }, 2000);
-  };
+  const onSubmit = handleSubmit((v) => {
+    const from = toWireDate(v.start_date as Date);
+    const to =
+      v.duration === "multiple_days" && v.end_date ? toWireDate(v.end_date) : from;
+    apply.mutate({
+      leave_type_id: v.leave_type_id,
+      date_from: from,
+      date_to: to,
+      reason: v.reason.trim(),
+      duration: v.duration,
+      half_day: v.duration === "half_day" ? v.half_day ?? null : null,
+    });
+  });
 
-  // Success state
-  if (showSuccess) {
+  if (types.isLoading) {
     return (
-      <div className="max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", duration: 0.5 }}
-          className="w-20 h-20 rounded-full bg-success-muted flex items-center justify-center mb-6"
-        >
-          <CheckCircle2 className="h-10 w-10 text-success" />
-        </motion.div>
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-2xl font-bold text-foreground mb-2"
-        >
-          Request Submitted
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="text-foreground-muted"
-        >
-          Your leave request has been sent to your manager for approval.
-        </motion.p>
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-96 rounded-[var(--radius-lg)]" />
+      </div>
+    );
+  }
+
+  if (types.isError) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <PageHeader title="Apply Leave" back />
+        <ErrorState message={types.error?.message} onRetry={() => types.refetch()} />
       </div>
     );
   }
 
   return (
-    <StaggerContainer className="max-w-2xl mx-auto space-y-8">
-      {/* Header */}
-      <StaggerItem>
-        <div className="flex items-center gap-4">
-          <Link href="/leaves">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-foreground">
-              Apply for Leave
-            </h1>
-            <p className="text-sm text-foreground-muted">
-              Let your team know you'll be away
-            </p>
-          </div>
-        </div>
-      </StaggerItem>
+    <div className="mx-auto max-w-2xl space-y-6 pb-24">
+      <PageHeader title="Apply Leave" description="Request time off" back />
 
-      {/* Step 1: Select Leave Type */}
-      <StaggerItem>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-              1
-            </div>
-            <Label className="text-base">What type of leave?</Label>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {leaveTypes.map((leave) => (
-              <LeaveBalanceCard
-                key={leave.id}
-                type={leave.type}
-                icon={leave.icon}
-                remaining={leave.remaining}
-                total={leave.total}
-                color={leave.color}
-                isSelected={selectedType === leave.id}
-                onClick={() => setSelectedType(leave.id)}
-              />
-            ))}
-          </div>
-          {selectedLeave && (
-            <motion.p
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-sm text-foreground-muted flex items-center gap-2"
-            >
-              <Info className="h-4 w-4" />
-              {selectedLeave.description}
-            </motion.p>
+      <Card className="space-y-6 p-6">
+        {/* Leave type */}
+        <Controller
+          control={control}
+          name="leave_type_id"
+          render={({ field }) => (
+            <Select
+              label="Leave type"
+              placeholder="Select a leave type"
+              options={typeOptions}
+              value={field.value}
+              onChange={field.onChange}
+              error={errors.leave_type_id?.message}
+            />
           )}
-        </div>
-      </StaggerItem>
+        />
 
-      {/* Step 2: Select Dates */}
-      <StaggerItem>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold",
-                selectedType
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-foreground-muted"
-              )}
-            >
-              2
-            </div>
-            <Label className="text-base">When do you need off?</Label>
-          </div>
-
-          <Card className={cn(!selectedType && "opacity-50 pointer-events-none")}>
-            <CardContent className="p-4 space-y-4">
-              <DateRangePicker
-                value={dateRange}
-                onChange={setDateRange}
-                placeholder="Select your dates"
-                minDate={new Date()}
+        {/* Duration */}
+        <div>
+          <Label className="mb-2 block">Duration</Label>
+          <Controller
+            control={control}
+            name="duration"
+            render={({ field }) => (
+              <RadioGroup
+                name="duration"
+                options={DURATION_OPTIONS}
+                value={field.value}
+                onChange={(v) => {
+                  field.onChange(v);
+                  if (v !== "half_day") setValue("half_day", null);
+                  if (v !== "multiple_days") setValue("end_date", null);
+                }}
               />
-
-              {/* Day type selector (show only for single day) */}
-              {dateRange.start && dateRange.end && dateRange.start.getTime() === dateRange.end.getTime() && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="pt-2"
-                >
-                  <Label className="text-sm mb-2 block">Duration</Label>
-                  <ToggleGroup
-                    value={dayType}
-                    onChange={setDayType}
-                    options={dayTypeOptions}
-                  />
-                </motion.div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Days summary */}
-          <AnimatePresence>
-            {daysRequested > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className={cn(
-                  "flex items-center justify-between p-4 rounded-xl",
-                  hasInsufficientBalance
-                    ? "bg-destructive-muted border border-destructive/20"
-                    : "bg-primary-muted/50 border border-primary/10"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Calendar className={cn("h-5 w-5", hasInsufficientBalance ? "text-destructive" : "text-primary")} />
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {daysRequested} {daysRequested === 1 ? "day" : "days"} requested
-                    </p>
-                    {selectedLeave && (
-                      <p className={cn("text-sm", hasInsufficientBalance ? "text-destructive" : "text-foreground-muted")}>
-                        {hasInsufficientBalance ? (
-                          <>You only have {selectedLeave.remaining} days available</>
-                        ) : (
-                          <>You'll have {newBalance} days remaining after this</>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {hasInsufficientBalance && (
-                  <AlertCircle className="h-5 w-5 text-destructive" />
-                )}
-              </motion.div>
             )}
-          </AnimatePresence>
-        </div>
-      </StaggerItem>
-
-      {/* Step 3: Reason (Optional) */}
-      <StaggerItem>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold",
-                dateRange.start && dateRange.end
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-foreground-muted"
-              )}
-            >
-              3
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-base">Anything to note?</Label>
-              <span className="text-xs text-foreground-subtle px-2 py-0.5 bg-secondary rounded-full">
-                Optional
-              </span>
-            </div>
-          </div>
-
-          <Textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Add a brief note if you'd like (vacation plans, medical appointment, etc.)"
-            className={cn(
-              "min-h-[100px]",
-              !(dateRange.start && dateRange.end) && "opacity-50 pointer-events-none"
-            )}
-            disabled={!(dateRange.start && dateRange.end)}
           />
         </div>
-      </StaggerItem>
 
-      {/* Submit Section */}
-      <StaggerItem>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-border">
-          <div className="text-sm text-foreground-muted">
-            {isValid ? (
-              <span className="flex items-center gap-2 text-success">
-                <CheckCircle2 className="h-4 w-4" />
-                Ready to submit
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Info className="h-4 w-4" />
-                {!selectedType
-                  ? "Select a leave type to continue"
-                  : !(dateRange.start && dateRange.end)
-                  ? "Select your dates"
-                  : hasInsufficientBalance
-                  ? "Insufficient leave balance"
-                  : "Complete all required fields"}
-              </span>
+        {/* Half-day period */}
+        {duration === "half_day" && (
+          <div>
+            <Label className="mb-2 block">Half-day period</Label>
+            <Controller
+              control={control}
+              name="half_day"
+              render={({ field }) => (
+                <RadioGroup
+                  name="half_day"
+                  options={HALF_DAY_OPTIONS}
+                  value={field.value ?? undefined}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            {errors.half_day && (
+              <p className="mt-1.5 text-xs text-destructive">{errors.half_day.message}</p>
             )}
           </div>
+        )}
 
-          <Button
-            onClick={handleSubmit}
-            disabled={!isValid || isSubmitting}
-            isLoading={isSubmitting}
-            size="lg"
-            className="gap-2"
-          >
-            {!isSubmitting && (
-              <>
-                <Send className="h-4 w-4" />
-                Submit Request
-              </>
+        {/* Dates */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label className="mb-2 block">
+              {duration === "multiple_days" ? "Start date" : "Date"}
+            </Label>
+            <Controller
+              control={control}
+              name="start_date"
+              render={({ field }) => (
+                <DatePicker
+                  value={field.value}
+                  onChange={(d) => {
+                    field.onChange(d);
+                    if (endDate && d && endDate < d) setValue("end_date", null);
+                  }}
+                  placeholder="Select date"
+                  error={errors.start_date?.message}
+                />
+              )}
+            />
+          </div>
+
+          {duration === "multiple_days" && (
+            <div>
+              <Label className="mb-2 block">End date</Label>
+              <Controller
+                control={control}
+                name="end_date"
+                render={({ field }) => (
+                  <DatePicker
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    placeholder="Select date"
+                    minDate={startDate ?? undefined}
+                    error={errors.end_date?.message}
+                  />
+                )}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Reason */}
+        <div>
+          <Label className="mb-2 block">Reason</Label>
+          <Textarea
+            rows={4}
+            placeholder="Briefly describe the reason for your leave"
+            error={errors.reason?.message}
+            {...register("reason")}
+          />
+        </div>
+
+        {/* Summary */}
+        {leaveTypeId && totalDays > 0 && (
+          <div className="rounded-[var(--radius-lg)] border border-border bg-secondary/30 p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-foreground-muted">Total requested</span>
+              <span className="font-semibold text-foreground">
+                {totalDays} {totalDays === 1 ? "day" : "days"}
+              </span>
+            </div>
+            {typeof remaining === "number" && (
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-sm text-foreground-muted">Remaining balance</span>
+                <span className="text-sm font-medium text-foreground">
+                  {remaining} {remaining === 1 ? "day" : "days"}
+                </span>
+              </div>
             )}
+            {showUnpaidWarning && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-warning-muted p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                <p className="text-xs text-warning">
+                  This request exceeds your remaining balance. The extra{" "}
+                  {Math.max(totalDays - (remaining ?? 0), 0)}{" "}
+                  {Math.max(totalDays - (remaining ?? 0), 0) === 1 ? "day" : "days"} may be
+                  treated as unpaid leave.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Sticky footer */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-sm md:pl-[240px]">
+        <div className="mx-auto flex max-w-2xl items-center justify-end gap-3 p-4">
+          <Button onClick={onSubmit} isLoading={apply.isPending} disabled={apply.isPending}>
+            <Send className="h-4 w-4" /> Submit Request
           </Button>
         </div>
-      </StaggerItem>
-
-      {/* Gentle footer note */}
-      <StaggerItem>
-        <p className="text-xs text-center text-foreground-subtle">
-          Your request will be sent to your manager for approval. You'll be notified once it's reviewed.
-        </p>
-      </StaggerItem>
-    </StaggerContainer>
+      </div>
+    </div>
   );
 }

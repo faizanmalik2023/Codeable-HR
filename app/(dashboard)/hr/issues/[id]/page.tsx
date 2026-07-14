@@ -1,424 +1,346 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowLeft,
-  MessageSquare,
-  AlertCircle,
-  Clock,
-  CheckCircle2,
-  Send,
-  Lock,
-  Globe,
-  User,
-  MoreHorizontal,
-} from "lucide-react";
+import { Clock, Send, CheckCircle2, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { StaggerContainer, StaggerItem } from "@/components/animations/fade-in";
-import { formatDate, cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmModal } from "@/components/ui/modal";
+import { PageHeader } from "@/components/shared/page-header";
+import { ErrorState } from "@/components/ui/empty-state";
+import { useEnums, toOptions } from "@/lib/api/enums";
+import {
+  IssueStatusEnum,
+  IssuePriorityEnum,
+  ISSUE_CATEGORY_LABELS,
+} from "@/lib/enums";
+import { formatOrdinalDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import type { EmployeeRef, IssueMessage, IssueModel } from "@/types";
+import { useHrIssueThread } from "./use-hr-issue-thread";
 
-// Types
-type IssueStatus = "open" | "in_progress" | "resolved";
-type MessageVisibility = "public" | "internal";
-
-interface Message {
-  id: string;
-  author: {
-    name: string;
-    role: string;
-    isHR: boolean;
-  };
-  content: string;
-  visibility: MessageVisibility;
-  createdAt: string;
-}
-
-interface IssueDetail {
-  id: string;
-  title: string;
-  type: string;
-  description: string;
-  employee: {
-    id: string;
-    name: string;
-    role: string;
-    department: string;
-  };
-  status: IssueStatus;
-  severity: "low" | "medium" | "high";
-  createdAt: string;
-  updatedAt: string;
-  messages: Message[];
-}
-
-// Mock data
-const mockIssue: IssueDetail = {
-  id: "1",
-  title: "Workplace accommodation request",
-  type: "Accommodation",
-  description: "I would like to request a standing desk and ergonomic chair due to recurring back issues. My doctor has recommended these accommodations to help prevent further strain. I've attached the medical documentation for your review.",
-  employee: { id: "emp1", name: "Alice Cooper", role: "Senior Developer", department: "Engineering" },
-  status: "open",
-  severity: "medium",
-  createdAt: "2024-01-18T10:00:00",
-  updatedAt: "2024-01-20T14:30:00",
-  messages: [
-    {
-      id: "m1",
-      author: { name: "Alice Cooper", role: "Senior Developer", isHR: false },
-      content: "I would like to request a standing desk and ergonomic chair due to recurring back issues. My doctor has recommended these accommodations to help prevent further strain.",
-      visibility: "public",
-      createdAt: "2024-01-18T10:00:00",
-    },
-    {
-      id: "m2",
-      author: { name: "Emily HR", role: "HR Business Partner", isHR: true },
-      content: "Hi Alice, thank you for reaching out. I'm sorry to hear about your back issues. We absolutely want to support you. Could you please share the medical documentation so we can process this request?",
-      visibility: "public",
-      createdAt: "2024-01-18T14:30:00",
-    },
-    {
-      id: "m3",
-      author: { name: "Emily HR", role: "HR Business Partner", isHR: true },
-      content: "Internal note: Checked with facilities - we have standing desks in stock. Ergonomic chairs need to be ordered, ~2 week lead time. Budget approved under ADA accommodations.",
-      visibility: "internal",
-      createdAt: "2024-01-19T09:00:00",
-    },
-    {
-      id: "m4",
-      author: { name: "Alice Cooper", role: "Senior Developer", isHR: false },
-      content: "I've uploaded the documentation to the secure portal. Please let me know if you need anything else.",
-      visibility: "public",
-      createdAt: "2024-01-20T14:30:00",
-    },
-  ],
-};
-
-const statusConfig: Record<IssueStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  open: { label: "Open", color: "text-destructive", bg: "bg-destructive-muted", icon: <AlertCircle className="h-4 w-4" /> },
-  in_progress: { label: "In Progress", color: "text-warning", bg: "bg-warning-muted", icon: <Clock className="h-4 w-4" /> },
-  resolved: { label: "Resolved", color: "text-success", bg: "bg-success-muted", icon: <CheckCircle2 className="h-4 w-4" /> },
-};
-
-export default function IssueDetailPage() {
+export default function HrIssueThreadPage() {
   const params = useParams();
-  const [issue, setIssue] = React.useState<IssueDetail>(mockIssue);
-  const [newMessage, setNewMessage] = React.useState("");
-  const [messageVisibility, setMessageVisibility] = React.useState<MessageVisibility>("public");
-  const [isSending, setIsSending] = React.useState(false);
-  const [isChangingStatus, setIsChangingStatus] = React.useState(false);
+  const id = String(params.id);
+  const { query, issue, send, retry, resolve } = useHrIssueThread(id);
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+  if (query.isLoading && !issue) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <PageHeader title="Issue" back />
+        <Skeleton className="h-28 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-20 w-2/3" />
+          <Skeleton className="ml-auto h-20 w-2/3" />
+          <Skeleton className="h-20 w-2/3" />
+        </div>
+      </div>
+    );
+  }
 
-    setIsSending(true);
-    await new Promise((r) => setTimeout(r, 800));
-
-    const message: Message = {
-      id: `m${Date.now()}`,
-      author: { name: "Emily HR", role: "HR Business Partner", isHR: true },
-      content: newMessage,
-      visibility: messageVisibility,
-      createdAt: new Date().toISOString(),
-    };
-
-    setIssue((prev) => ({
-      ...prev,
-      messages: [...prev.messages, message],
-      updatedAt: new Date().toISOString(),
-    }));
-
-    setNewMessage("");
-    setIsSending(false);
-  };
-
-  const handleStatusChange = async (newStatus: IssueStatus) => {
-    setIsChangingStatus(true);
-    await new Promise((r) => setTimeout(r, 500));
-
-    setIssue((prev) => ({
-      ...prev,
-      status: newStatus,
-      updatedAt: new Date().toISOString(),
-    }));
-
-    setIsChangingStatus(false);
-  };
-
-  const publicMessages = issue.messages.filter((m) => m.visibility === "public");
-  const internalMessages = issue.messages.filter((m) => m.visibility === "internal");
+  if ((query.isError && !issue) || !issue) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <PageHeader title="Issue" back />
+        <ErrorState
+          message={query.error instanceof Error ? query.error.message : undefined}
+          onRetry={() => query.refetch()}
+        />
+      </div>
+    );
+  }
 
   return (
-    <StaggerContainer className="space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <StaggerItem>
-        <div className="flex items-start gap-4">
-          <Link href="/hr/issues">
-            <Button variant="ghost" size="icon" className="rounded-full mt-1">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div className="flex-1">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold text-foreground mb-2">
-                  {issue.title}
-                </h1>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="muted">{issue.type}</Badge>
-                  <Badge className={cn(statusConfig[issue.status].bg, statusConfig[issue.status].color)}>
-                    {statusConfig[issue.status].label}
-                  </Badge>
-                  <span className="text-sm text-foreground-muted">
-                    Opened {formatDate(new Date(issue.createdAt))}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </StaggerItem>
-
-      {/* Employee Info & Status Controls */}
-      <StaggerItem>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Avatar name={issue.employee.name} size="md" />
-                <div>
-                  <p className="font-medium text-foreground">{issue.employee.name}</p>
-                  <p className="text-sm text-foreground-muted">
-                    {issue.employee.role} · {issue.employee.department}
-                  </p>
-                </div>
-              </div>
-
-              {/* Status Controls */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-foreground-muted mr-2">Status:</span>
-                {(["open", "in_progress", "resolved"] as IssueStatus[]).map((status) => (
-                  <Button
-                    key={status}
-                    variant={issue.status === status ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleStatusChange(status)}
-                    disabled={isChangingStatus || issue.status === status}
-                    className={cn(
-                      issue.status === status && statusConfig[status].bg,
-                      issue.status === status && statusConfig[status].color
-                    )}
-                  >
-                    {statusConfig[status].label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </StaggerItem>
-
-      {/* Thread View */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Thread (Public) */}
-        <StaggerItem className="lg:col-span-2">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-primary" />
-                <CardTitle className="text-base">Conversation</CardTitle>
-                <span className="text-xs text-foreground-muted">
-                  (visible to employee)
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Messages */}
-              <div className="space-y-4 max-h-[400px] overflow-y-auto">
-                {publicMessages.map((message, index) => (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className={cn(
-                      "p-4 rounded-xl",
-                      message.author.isHR ? "bg-primary-muted/30 ml-4" : "bg-secondary/50 mr-4"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar name={message.author.name} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-foreground text-sm">
-                            {message.author.name}
-                          </span>
-                          {message.author.isHR && (
-                            <Badge variant="muted" className="text-xs">HR</Badge>
-                          )}
-                          <span className="text-xs text-foreground-subtle">
-                            {formatDate(new Date(message.createdAt))}
-                          </span>
-                        </div>
-                        <p className="text-foreground text-sm whitespace-pre-wrap">
-                          {message.content}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* Reply Box */}
-              <div className="pt-4 border-t border-border">
-                <div className="space-y-3">
-                  <Textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Write a reply to the employee..."
-                    className="min-h-[100px]"
-                  />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant={messageVisibility === "public" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setMessageVisibility("public")}
-                        className="gap-1"
-                      >
-                        <Globe className="h-3 w-3" />
-                        Public
-                      </Button>
-                      <Button
-                        variant={messageVisibility === "internal" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setMessageVisibility("internal")}
-                        className="gap-1"
-                      >
-                        <Lock className="h-3 w-3" />
-                        Internal
-                      </Button>
-                    </div>
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim() || isSending}
-                      isLoading={isSending}
-                      className="gap-2"
-                    >
-                      {!isSending && (
-                        <>
-                          <Send className="h-4 w-4" />
-                          Send
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  {messageVisibility === "internal" && (
-                    <p className="text-xs text-warning flex items-center gap-1">
-                      <Lock className="h-3 w-3" />
-                      This message will only be visible to HR team members
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </StaggerItem>
-
-        {/* Internal Notes Sidebar */}
-        <StaggerItem>
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Lock className="h-4 w-4 text-warning" />
-                <CardTitle className="text-base">Internal Notes</CardTitle>
-              </div>
-              <p className="text-xs text-foreground-muted">
-                HR eyes only - not visible to employee
-              </p>
-            </CardHeader>
-            <CardContent>
-              {internalMessages.length > 0 ? (
-                <div className="space-y-3">
-                  {internalMessages.map((message, index) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="p-3 rounded-lg bg-warning-muted/20 border border-warning/10"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Avatar name={message.author.name} size="xs" />
-                        <span className="text-xs font-medium text-foreground">
-                          {message.author.name}
-                        </span>
-                        <span className="text-xs text-foreground-subtle">
-                          {formatDate(new Date(message.createdAt))}
-                        </span>
-                      </div>
-                      <p className="text-sm text-foreground">
-                        {message.content}
-                      </p>
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-foreground-muted">
-                  <Lock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No internal notes yet</p>
-                  <p className="text-xs">
-                    Add notes that only HR can see
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Resolution History */}
-          <Card className="mt-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                  <div>
-                    <p className="text-sm text-foreground">Issue opened</p>
-                    <p className="text-xs text-foreground-muted">
-                      {formatDate(new Date(issue.createdAt))}
-                    </p>
-                  </div>
-                </div>
-                {issue.status !== "open" && (
-                  <div className="flex items-start gap-3">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full mt-2",
-                      issue.status === "in_progress" ? "bg-warning" : "bg-success"
-                    )} />
-                    <div>
-                      <p className="text-sm text-foreground">
-                        Status changed to {statusConfig[issue.status].label}
-                      </p>
-                      <p className="text-xs text-foreground-muted">
-                        {formatDate(new Date(issue.updatedAt))}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </StaggerItem>
-      </div>
-    </StaggerContainer>
+    <IssueThread
+      issue={issue}
+      onSend={send}
+      onRetry={retry}
+      onResolve={() => resolve.mutate()}
+      resolving={resolve.isPending}
+    />
   );
+}
+
+function IssueThread({
+  issue,
+  onSend,
+  onRetry,
+  onResolve,
+  resolving,
+}: {
+  issue: IssueModel;
+  onSend: (message: string) => void;
+  onRetry: (message: IssueMessage) => void;
+  onResolve: () => void;
+  resolving: boolean;
+}) {
+  const enums = useEnums();
+  const [draft, setDraft] = React.useState("");
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const bottomRef = React.useRef<HTMLDivElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const messages = issue.messages ?? [];
+
+  const autoGrow = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  };
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const categoryLabel = React.useMemo(() => {
+    const opts = toOptions(enums.data?.ticket_category, ISSUE_CATEGORY_LABELS);
+    return (
+      opts.find((o) => o.value === issue.category)?.label ??
+      ISSUE_CATEGORY_LABELS[issue.category as keyof typeof ISSUE_CATEGORY_LABELS] ??
+      issue.category
+    );
+  }, [enums.data, issue.category]);
+
+  const locked = issue.status === "resolved" || issue.status === "closed";
+  const canResolve = issue.status === "open" || issue.status === "in_progress";
+  const grouped = groupByDate(messages);
+
+  const handleSend = () => {
+    if (!draft.trim()) return;
+    onSend(draft);
+    setDraft("");
+    const el = textareaRef.current;
+    if (el) el.style.height = "auto";
+  };
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 pb-28">
+      <PageHeader
+        title="Issue"
+        back
+        actions={
+          canResolve ? (
+            <Button variant="outline" onClick={() => setConfirmOpen(true)}>
+              <CheckCircle2 className="h-4 w-4" /> Resolve
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {/* Header card */}
+      <Card className="space-y-3 p-5">
+        <h1 className="text-lg font-semibold text-foreground">{issue.title}</h1>
+        {issue.created_at && (
+          <p className="text-sm text-foreground-muted">
+            Created {formatOrdinalDate(issue.created_at)}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={IssueStatusEnum.tone(issue.status)}>
+            {IssueStatusEnum.label(issue.status)}
+          </Badge>
+          <Badge variant={IssuePriorityEnum.tone(issue.priority)}>
+            {IssuePriorityEnum.label(issue.priority)}
+          </Badge>
+          <Badge variant="muted">{categoryLabel}</Badge>
+          {issue.is_anonymous && (
+            <Badge variant="outline" className="gap-1">
+              <EyeOff className="h-3 w-3" /> Anonymous
+            </Badge>
+          )}
+        </div>
+        {assignedName(issue.assigned_to) && (
+          <p className="text-sm text-foreground-muted">
+            Assigned to{" "}
+            <span className="font-medium text-foreground">
+              {assignedName(issue.assigned_to)}
+            </span>
+          </p>
+        )}
+      </Card>
+
+      {/* Thread */}
+      <div className="space-y-4">
+        {grouped.map((group) => (
+          <div key={group.label} className="space-y-4">
+            <div className="flex justify-center">
+              <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground-muted">
+                {group.label}
+              </span>
+            </div>
+            {group.messages.map((message, i) => (
+              <MessageBubble
+                key={message.id ?? `${group.label}-${i}`}
+                message={message}
+                onRetry={onRetry}
+              />
+            ))}
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Sticky footer */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-sm md:pl-[240px]">
+        <div className="mx-auto max-w-3xl p-4">
+          {locked ? (
+            <p className="rounded-[var(--radius-lg)] bg-secondary/60 px-4 py-3 text-center text-sm text-foreground-muted">
+              This issue has been {issue.status}. Replies are closed.
+            </p>
+          ) : (
+            <div className="flex items-end gap-3">
+              <Textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  autoGrow();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Reply to the employee…"
+                rows={1}
+                className="max-h-40 min-h-[44px]"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!draft.trim()}
+                size="icon"
+                aria-label="Send"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          onResolve();
+          setConfirmOpen(false);
+        }}
+        title="Resolve this issue?"
+        description="The employee will be notified and the thread will be closed to further replies."
+        confirmLabel="Mark resolved"
+        isLoading={resolving}
+      />
+    </div>
+  );
+}
+
+function MessageBubble({
+  message,
+  onRetry,
+}: {
+  message: IssueMessage;
+  onRetry: (message: IssueMessage) => void;
+}) {
+  if (message.sender === "system") {
+    return (
+      <div className="flex justify-center">
+        <span className="max-w-[80%] rounded-full bg-secondary/50 px-3 py-1 text-center text-xs text-foreground-muted">
+          {message.content}
+        </span>
+      </div>
+    );
+  }
+
+  // HR view: HR's own messages sit on the right.
+  const own = message.sender === "hr";
+  const sending = message.delivery === "sending";
+  const failed = message.delivery === "failed";
+
+  if (own) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <div
+          className={cn(
+            "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-primary px-4 py-2.5 text-sm text-primary-foreground",
+            sending && "opacity-60"
+          )}
+        >
+          {message.content}
+        </div>
+        {sending && (
+          <span className="flex items-center gap-1 text-xs text-foreground-subtle">
+            <Clock className="h-3 w-3" /> Sending…
+          </span>
+        )}
+        {failed && (
+          <button
+            type="button"
+            onClick={() => onRetry(message)}
+            className="text-xs font-medium text-destructive hover:underline"
+          >
+            Not sent · Tap to retry
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Employee message
+  return (
+    <div className="flex items-start gap-2.5">
+      {message.sender_avatar ? (
+        <Avatar size="sm" src={message.sender_avatar} name={message.sender_name} />
+      ) : (
+        <Avatar size="sm" name={message.sender_name ?? "Employee"} />
+      )}
+      <div className="flex max-w-[80%] flex-col items-start gap-1">
+        <span className="text-xs font-medium text-foreground-muted">
+          {message.sender_name ?? "Employee"}
+        </span>
+        <div className="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-secondary px-4 py-2.5 text-sm text-foreground">
+          {message.content}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- helpers ----------------------------- */
+
+function assignedName(assigned: EmployeeRef | string | undefined): string | null {
+  if (!assigned) return null;
+  if (typeof assigned === "string") return assigned;
+  return assigned.full_name ?? assigned.name ?? null;
+}
+
+function dateLabel(input: string | undefined): string {
+  if (!input) return "—";
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return "—";
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const same = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  if (same(d, today)) return "Today";
+  if (same(d, yesterday)) return "Yesterday";
+  return formatOrdinalDate(d);
+}
+
+function groupByDate(messages: IssueMessage[]): { label: string; messages: IssueMessage[] }[] {
+  const groups: { label: string; messages: IssueMessage[] }[] = [];
+  for (const message of messages) {
+    const label = dateLabel(message.created_at);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.messages.push(message);
+    else groups.push({ label, messages: [message] });
+  }
+  return groups;
 }

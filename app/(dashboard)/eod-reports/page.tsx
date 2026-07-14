@@ -1,199 +1,216 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { motion } from "framer-motion";
-import {
-  PenLine,
-  History,
-  Calendar,
-  ArrowRight,
-  FileText,
-  CheckCircle2,
-  Clock,
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import { Plus, Users, Pencil, Trash2, FileText } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EODStatusBadge } from "@/components/eod";
-import { StaggerContainer, StaggerItem } from "@/components/animations/fade-in";
-import { formatDate } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { FilterTabs } from "@/components/ui/filter-tabs";
+import { Sheet, SheetFooter } from "@/components/ui/sheet";
+import { ConfirmModal } from "@/components/ui/modal";
+import { DataTable, type DataTableColumn } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { EodStatusEnum, EOD_FILTERS } from "@/lib/enums";
+import { formatOrdinalDate } from "@/lib/format";
+import { isManagerUser, useAuthStore } from "@/stores/auth-store";
+import { useEodReports } from "./use-eod-reports";
+import type { EodReportModel } from "@/types";
 
-// Mock data
-const todayStatus: "not_started" | "draft" | "submitted" = "draft";
-const recentEODs = [
-  { date: "2024-01-16", status: "submitted", hours: 8, summary: "Worked on dashboard UI components..." },
-  { date: "2024-01-15", status: "submitted", hours: 7.5, summary: "Fixed authentication bugs and..." },
-  { date: "2024-01-14", status: "submitted", hours: 8, summary: "Sprint planning and code reviews..." },
-];
+export default function EodReportsPage() {
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const isManager = isManagerUser(user);
+  const { status, setStatus, items, counts, pagination, page, setPage, query, remove, forbidden } =
+    useEodReports();
+  const [selected, setSelected] = React.useState<EodReportModel | null>(null);
+  const [toDelete, setToDelete] = React.useState<EodReportModel | null>(null);
 
-export default function EODReportsPage() {
-  const today = new Date();
+  const tabs = EOD_FILTERS.map((value) => ({
+    value,
+    label: value === "all" ? "All" : EodStatusEnum.label(value),
+    count: value === "all" ? undefined : counts[value],
+  }));
+
+  const columns: DataTableColumn<EodReportModel>[] = [
+    {
+      key: "date",
+      header: "Date",
+      render: (r) => <span className="font-medium text-foreground">{formatOrdinalDate(r.date)}</span>,
+    },
+    { key: "project", header: "Project", render: (r) => r.project_name ?? "—" },
+    {
+      key: "summary",
+      header: "Summary",
+      className: "max-w-xs",
+      render: (r) => <span className="line-clamp-1 text-foreground-muted">{r.summary}</span>,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (r) => <Badge variant={EodStatusEnum.tone(r.status)}>{EodStatusEnum.label(r.status)}</Badge>,
+    },
+    { key: "hours", header: "Hours", align: "right", render: (r) => `${r.hours ?? 0}h` },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (r) => (
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {r.can_edit && (
+            <Button variant="ghost" size="icon-sm" onClick={() => router.push(`/eod-reports/submit?id=${r.id}`)} aria-label="Edit">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {r.can_delete && (
+            <Button variant="ghost" size="icon-sm" onClick={() => setToDelete(r)} aria-label="Delete">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  // Admins (and any role the backend forbids from personal EODs) review by team.
+  if (forbidden) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="EOD Reports"
+          description="Review end-of-day reports by team member"
+          actions={
+            <Button onClick={() => router.push("/eod-reports/team")}>
+              <Users className="h-4 w-4" /> Team EODs
+            </Button>
+          }
+        />
+        <EmptyState
+          icon={Users}
+          title="Reviewed by team"
+          description="Your role reviews end-of-day reports per team member rather than keeping a personal log."
+          action={{ label: "View Team EODs", onClick: () => router.push("/eod-reports/team") }}
+        />
+      </div>
+    );
+  }
 
   return (
-    <StaggerContainer className="max-w-4xl mx-auto space-y-8">
-      {/* Header */}
-      <StaggerItem>
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            EOD Reports
-          </h1>
-          <p className="text-foreground-muted">
-            Track your daily work and accomplishments
-          </p>
-        </div>
-      </StaggerItem>
-
-      {/* Today's EOD Card */}
-      <StaggerItem>
-        <Card className="overflow-hidden">
-          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <Calendar className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Today's EOD
-                    </h2>
-                    <EODStatusBadge status={todayStatus} size="sm" />
-                  </div>
-                  <p className="text-foreground-muted">
-                    {formatDate(today)} · {today.toLocaleDateString("en-US", { weekday: "long" })}
-                  </p>
-                </div>
-              </div>
-
-              <Link href="/eod-reports/submit">
-                <Button size="lg" className="w-full md:w-auto gap-2">
-                  {todayStatus === "not_started" ? (
-                    <>
-                      <PenLine className="h-4 w-4" />
-                      Start Writing
-                    </>
-                  ) : todayStatus === "draft" ? (
-                    <>
-                      <PenLine className="h-4 w-4" />
-                      Continue Writing
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="h-4 w-4" />
-                      View Today's EOD
-                    </>
-                  )}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          {/* Status message */}
-          <CardContent className="p-4 md:p-6 border-t border-border/50">
-            {todayStatus === "not_started" && (
-              <div className="flex items-center gap-3 text-foreground-muted">
-                <Clock className="h-5 w-5" />
-                <span>You haven't started today's EOD yet. Take a moment to reflect on your work.</span>
-              </div>
-            )}
-            {todayStatus === "draft" && (
-              <div className="flex items-center gap-3 text-warning">
-                <PenLine className="h-5 w-5" />
-                <span>You have a draft saved. Don't forget to submit before end of day.</span>
-              </div>
-            )}
-            {todayStatus === "submitted" && (
-              <div className="flex items-center gap-3 text-success">
-                <CheckCircle2 className="h-5 w-5" />
-                <span>Great job! Today's EOD has been submitted.</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </StaggerItem>
-
-      {/* Quick Links */}
-      <StaggerItem>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Link href="/eod-reports/submit">
-            <motion.div
-              className="flex items-center gap-4 p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card-hover transition-all cursor-pointer group"
-              whileHover={{ y: -2 }}
-            >
-              <div className="p-3 rounded-lg bg-primary-muted group-hover:bg-primary/20 transition-colors">
-                <PenLine className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Submit EOD</h3>
-                <p className="text-sm text-foreground-muted">Write today's report</p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-foreground-subtle group-hover:text-primary transition-colors" />
-            </motion.div>
-          </Link>
-
-          <Link href="/eod-reports/history">
-            <motion.div
-              className="flex items-center gap-4 p-5 rounded-xl border border-border bg-card hover:border-primary/30 hover:bg-card-hover transition-all cursor-pointer group"
-              whileHover={{ y: -2 }}
-            >
-              <div className="p-3 rounded-lg bg-secondary group-hover:bg-secondary-hover transition-colors">
-                <History className="h-5 w-5 text-foreground-muted" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">View History</h3>
-                <p className="text-sm text-foreground-muted">Browse past EODs</p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-foreground-subtle group-hover:text-primary transition-colors" />
-            </motion.div>
-          </Link>
-        </div>
-      </StaggerItem>
-
-      {/* Recent EODs Preview */}
-      <StaggerItem>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Recent Reports</h2>
-            <Link href="/eod-reports/history">
-              <Button variant="ghost" size="sm" className="text-primary gap-1">
-                View all
-                <ArrowRight className="h-4 w-4" />
+    <div className="space-y-6">
+      <PageHeader
+        title="EOD Reports"
+        description="Your end-of-day reports"
+        actions={
+          <div className="flex items-center gap-2">
+            {isManager && (
+              <Button variant="outline" onClick={() => router.push("/eod-reports/team")}>
+                <Users className="h-4 w-4" /> Team
               </Button>
-            </Link>
+            )}
+            <Button onClick={() => router.push("/eod-reports/submit")}>
+              <Plus className="h-4 w-4" /> Submit EOD
+            </Button>
           </div>
+        }
+      />
 
-          <div className="space-y-3">
-            {recentEODs.map((eod, index) => (
-              <motion.div
-                key={eod.date}
-                className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-card-hover transition-colors cursor-pointer"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ x: 4 }}
-              >
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-success-muted">
-                  <CheckCircle2 className="h-5 w-5 text-success" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-medium text-foreground">
-                      {formatDate(new Date(eod.date))}
-                    </p>
-                    <span className="text-xs text-foreground-subtle">·</span>
-                    <span className="text-sm text-foreground-muted">{eod.hours}h</span>
-                  </div>
-                  <p className="text-sm text-foreground-muted truncate">
-                    {eod.summary}
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-foreground-subtle" />
-              </motion.div>
-            ))}
+      <FilterTabs tabs={tabs} value={status} onChange={setStatus} />
+
+      <Card className="p-2">
+        <DataTable
+          columns={columns}
+          data={items}
+          rowKey={(r) => r.id}
+          onRowClick={(r) => setSelected(r)}
+          isLoading={query.isLoading}
+          empty={
+            <EmptyState
+              icon={FileText}
+              title="No reports yet"
+              description="Submit your first end-of-day report."
+              action={{ label: "Submit EOD", onClick: () => router.push("/eod-reports/submit") }}
+            />
+          }
+        />
+      </Card>
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-foreground-muted">
+          <span>
+            Page {pagination.currentPage} of {pagination.totalPages}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= pagination.totalPages}
+              onClick={() => setPage(page + 1)}
+            >
+              Next
+            </Button>
           </div>
         </div>
-      </StaggerItem>
-    </StaggerContainer>
+      )}
+
+      {/* Detail drawer */}
+      <Sheet open={!!selected} onClose={() => setSelected(null)} title="EOD Report" size="md">
+        {selected && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-foreground-muted">{formatOrdinalDate(selected.date)}</p>
+                {selected.project_name && (
+                  <p className="font-medium text-foreground">{selected.project_name}</p>
+                )}
+              </div>
+              <Badge variant={EodStatusEnum.tone(selected.status)}>{EodStatusEnum.label(selected.status)}</Badge>
+            </div>
+            <DetailField label="Summary" value={selected.summary} />
+            {selected.blockers && <DetailField label="Blockers" value={selected.blockers} />}
+            {selected.tomorrow_plan && <DetailField label="Tomorrow's plan" value={selected.tomorrow_plan} />}
+            <DetailField label="Hours" value={`${selected.hours ?? 0}h`} />
+          </div>
+        )}
+        {selected?.can_edit && (
+          <SheetFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                router.push(`/eod-reports/submit?id=${selected.id}`);
+                setSelected(null);
+              }}
+            >
+              <Pencil className="h-4 w-4" /> Edit
+            </Button>
+          </SheetFooter>
+        )}
+      </Sheet>
+
+      <ConfirmModal
+        open={!!toDelete}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => {
+          if (toDelete) remove.mutate(toDelete.id, { onSettled: () => setToDelete(null) });
+        }}
+        title="Delete report?"
+        description="This EOD report will be permanently removed."
+        confirmLabel="Delete"
+        variant="destructive"
+        isLoading={remove.isPending}
+      />
+    </div>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-foreground-muted">{label}</p>
+      <p className="whitespace-pre-wrap text-sm text-foreground">{value}</p>
+    </div>
   );
 }
