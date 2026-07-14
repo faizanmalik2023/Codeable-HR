@@ -15,8 +15,8 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
       <motion.div
         ref={ref}
         className={cn(
-          "rounded-[var(--radius-lg)] border border-border bg-card text-card-foreground shadow-sm",
-          hover && "transition-all duration-200 hover:shadow-md hover:border-border-hover",
+          "rounded-[var(--radius-lg)] border border-border bg-card text-card-foreground",
+          hover && "transition-colors duration-200 hover:border-border-hover hover:bg-card-hover",
           className
         )}
         initial={{ opacity: 0, y: 10 }}

@@ -6,14 +6,14 @@ import { motion, HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius)] text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover active:scale-[0.98]",
+          "bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98]",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 active:scale-[0.98]",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98]",
         outline:
           "border border-border bg-transparent hover:bg-secondary hover:border-border-hover active:scale-[0.98]",
         secondary:
@@ -22,14 +22,14 @@ const buttonVariants = cva(
           "hover:bg-secondary hover:text-foreground active:scale-[0.98]",
         link: "text-primary underline-offset-4 hover:underline",
         success:
-          "bg-success text-success-foreground shadow-sm hover:bg-success/90 active:scale-[0.98]",
+          "bg-success text-success-foreground hover:bg-success/90 active:scale-[0.98]",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-[var(--radius-sm)] px-3 text-xs",
-        lg: "h-10 rounded-[var(--radius-lg)] px-6",
-        xl: "h-12 rounded-[var(--radius-lg)] px-8 text-base",
-        icon: "h-9 w-9",
+        default: "h-10 px-5 py-2 text-sm",
+        sm: "h-8 px-4 text-xs",
+        lg: "h-11 px-6 text-sm",
+        xl: "h-12 px-8 text-base",
+        icon: "h-10 w-10",
         "icon-sm": "h-8 w-8",
       },
     },

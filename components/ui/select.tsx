@@ -101,12 +101,12 @@ export function Select({
       <button
         type="button"
         className={cn(
-          "flex h-11 w-full items-center justify-between rounded-xl border bg-transparent px-4 text-left",
+          "flex h-11 w-full items-center justify-between rounded-[var(--radius)] border border-transparent bg-background-secondary px-4 text-left",
           "transition-all duration-200",
-          "focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary",
+          "focus:outline-none focus:ring-2 focus:ring-ring",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          isOpen ? "border-primary ring-2 ring-ring/20" : "border-input",
-          error && "border-destructive"
+          isOpen && "ring-2 ring-ring bg-card",
+          error && "ring-2 ring-destructive"
         )}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}

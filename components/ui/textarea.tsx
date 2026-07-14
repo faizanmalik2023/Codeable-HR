@@ -15,13 +15,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       <div className="relative overflow-visible">
         <textarea
           className={cn(
-            "flex min-h-[120px] w-full rounded-xl border border-input bg-transparent px-4 py-3 text-base",
+            "flex min-h-[120px] w-full rounded-[var(--radius)] border border-transparent bg-background-secondary px-4 py-3 text-base",
             "placeholder:text-foreground-subtle",
             "transition-all duration-200",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:border-primary",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-card",
             "disabled:cursor-not-allowed disabled:opacity-50",
             "resize-none",
-            error && "border-destructive focus-visible:ring-destructive/20",
+            error && "ring-2 ring-destructive",
             className
           )}
           ref={ref}

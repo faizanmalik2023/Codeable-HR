@@ -13,7 +13,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   ClipboardCheck,
   UserCheck,
   Building2,
@@ -163,9 +162,10 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/codeable-emblem-white.svg" alt="Codeable" className="h-4 w-auto" />
           </div>
           <AnimatePresence>
             {!isCollapsed && (
@@ -174,7 +174,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.15 }}
-                className="font-semibold text-sidebar-foreground"
+                className="font-heading font-bold tracking-tight text-sidebar-foreground"
               >
                 CodeableHR
               </motion.span>

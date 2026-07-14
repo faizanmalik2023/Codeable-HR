@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Mail, Lock, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { AuroraBackground } from "@/components/animations/aurora-background";
 import { BlurText } from "@/components/animations/blur-text";
 import { FadeIn } from "@/components/animations/fade-in";
@@ -30,13 +30,14 @@ export default function LoginPage() {
           <FadeIn delay={0} className="mb-8 text-center">
             <motion.div
               className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg"
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 16, delay: 0.1 }}
             >
-              <Sparkles className="h-8 w-8 text-primary-foreground" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/codeable-emblem-white.svg" alt="Codeable" className="h-8 w-auto" />
             </motion.div>
-            <h1 className="mb-2 text-3xl font-bold text-foreground">
+            <h1 className="mb-2 font-heading text-3xl font-bold text-foreground">
               <BlurText text="Welcome to CodeableHR" delay={0.2} />
             </h1>
             <p className="text-foreground-muted">Sign in to continue to your workspace</p>
