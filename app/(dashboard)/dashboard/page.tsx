@@ -87,23 +87,38 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* Greeting */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {data.greeting || `Welcome back, ${firstName}`}
-          </h1>
-          {data.current_date && (
-            <p className="text-sm text-foreground-muted">{formatOrdinalDate(data.current_date)}</p>
+      {/* Greeting — navy→blue gradient hero with rotated emblem watermark */}
+      <div
+        className="relative overflow-hidden rounded-[var(--radius-xl)] p-6 text-white md:p-8"
+        style={{
+          backgroundImage:
+            "linear-gradient(135deg, hsl(var(--hero-from)) 0%, hsl(var(--hero-to)) 100%)",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/codeable-emblem-white.svg"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute -right-6 -top-6 w-56 max-w-none rotate-12 opacity-[0.12]"
+        />
+        <div className="relative flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="font-heading text-2xl font-bold md:text-3xl">
+              {data.greeting || `Welcome back, ${firstName}`}
+            </h1>
+            {data.current_date && (
+              <p className="mt-1 text-sm text-white/70">{formatOrdinalDate(data.current_date)}</p>
+            )}
+          </div>
+          {/* Attendance pill — only employees/managers clock in */}
+          {!isHrPlus && glance?.attendance_status && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm">
+              <span className="h-2 w-2 rounded-full bg-white" />
+              {CHECK_IN_LABELS[glance.attendance_status]}
+            </span>
           )}
         </div>
-        {/* Attendance pill — only employees/managers clock in */}
-        {!isHrPlus && glance?.attendance_status && (
-          <Badge variant="secondary" className="gap-1.5 py-1.5">
-            <span className="h-2 w-2 rounded-full bg-primary" />
-            {CHECK_IN_LABELS[glance.attendance_status]}
-          </Badge>
-        )}
       </div>
 
       {/* Quick actions */}
