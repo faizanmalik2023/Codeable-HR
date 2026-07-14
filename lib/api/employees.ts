@@ -55,10 +55,15 @@ export interface SalaryComponent {
 }
 
 export interface SalaryHistoryItem {
+  id?: string;
   type: SalaryRevisionType | string;
+  previous_amount?: number;
+  new_amount: number;
+  increase?: number;
+  increase_percent?: number;
   effective_date: string;
-  amount: number;
-  designation?: string | null;
+  note?: string | null;
+  created_at?: string;
 }
 
 export interface Perk {

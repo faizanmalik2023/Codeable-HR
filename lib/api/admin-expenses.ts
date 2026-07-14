@@ -112,12 +112,19 @@ export interface AdminExpenseAnalytics {
   by_category?: ExpenseBreakdownItem[];
 }
 
+/** One payment-method total in the report breakdown. */
+export interface ExpensePaymentBreakdownItem {
+  payment_method: string;
+  total: number;
+}
+
 /** Nested summary under `report.summary`. */
 export interface AdminExpenseReportSummary {
   total_spend: number;
   recurring_total: number;
   one_time_total: number;
   by_category?: ExpenseBreakdownItem[];
+  by_payment_method?: ExpensePaymentBreakdownItem[];
 }
 
 /** `GET /admin/expenses/report` — `{ period, summary, line_items, generated_at }`. */

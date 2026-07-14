@@ -39,11 +39,24 @@ export interface ProjectSummaryLine {
   count: number;
 }
 
-/** `GET /admin/project-income/summary` — `{ range, total_income, by_project }`. */
+/** One per-currency total in the summary (original currency amount + record count). */
+export interface CurrencyTotal {
+  currency: string;
+  amount: number;
+  count: number;
+}
+
+/** `GET /admin/project-income/summary`. */
 export interface ProjectIncomeSummary {
   range?: { from: string | null; to: string | null };
   /** Grand total (PKR) over the range. */
   total_income: number;
+  /** Explicit PKR rollup (alias of total_income). */
+  total_pkr?: number;
+  /** Total record count over the range. */
+  count?: number;
+  /** Per-currency breakdown (original amounts). */
+  totals?: CurrencyTotal[];
   by_project: ProjectSummaryLine[];
 }
 

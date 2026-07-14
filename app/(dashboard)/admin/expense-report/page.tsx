@@ -65,6 +65,7 @@ function Report({ data }: { data: AdminExpenseReport }) {
   const currency: ExpenseCurrency = "PKR";
   const summary = data.summary;
   const categories = summary.by_category ?? [];
+  const payments = summary.by_payment_method ?? [];
 
   return (
     <div className="space-y-6">
@@ -95,6 +96,17 @@ function Report({ data }: { data: AdminExpenseReport }) {
           items={categories.map((c) => ({
             label: prettify(c.category),
             amount: c.total,
+          }))}
+          currency={currency}
+        />
+      )}
+
+      {payments.length > 0 && (
+        <BarSection
+          title="By payment method"
+          items={payments.map((p) => ({
+            label: prettify(p.payment_method),
+            amount: p.total,
           }))}
           currency={currency}
         />

@@ -438,7 +438,7 @@ function SalarySection({ employee }: { employee: EmployeeInfo }) {
                   )}
                   <span className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-foreground">{formatMoney(h.amount)}</span>
+                    <span className="font-medium text-foreground">{formatMoney(h.new_amount)}</span>
                     <Badge variant="muted" className="text-xs">
                       {SALARY_REVISION_LABELS[h.type as keyof typeof SALARY_REVISION_LABELS] ??
                         labelize(h.type)}
@@ -446,7 +446,7 @@ function SalarySection({ employee }: { employee: EmployeeInfo }) {
                   </div>
                   <p className="text-xs text-foreground-subtle">
                     {formatOrdinalDate(h.effective_date)}
-                    {h.designation ? ` · ${h.designation}` : ""}
+                    {h.note ? ` · ${h.note}` : ""}
                   </p>
                 </div>
               ))}

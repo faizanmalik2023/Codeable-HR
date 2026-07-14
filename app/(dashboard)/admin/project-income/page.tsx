@@ -23,9 +23,13 @@ export default function ProjectIncomePage() {
   const { search, setSearch, page, setPage, query, summary, items, pagination } =
     useProjectIncome();
 
-  // Summary is per-project totals; the headline count sums each project's record count.
+  // Backend supplies the total record count + per-currency breakdown; fall back to
+  // summing per-project counts if an older payload omits `count`.
   const recordCount =
-    summary.data?.by_project?.reduce((n, p) => n + (p.count ?? 0), 0) ?? 0;
+    summary.data?.count ??
+    summary.data?.by_project?.reduce((n, p) => n + (p.count ?? 0), 0) ??
+    0;
+  const nonPkrTotals = (summary.data?.totals ?? []).filter((t) => t.currency !== "PKR");
 
   const columns: DataTableColumn<ProjectIncome>[] = [
     {
@@ -90,12 +94,23 @@ export default function ProjectIncomePage() {
       />
 
       {/* Summary header */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatusCard
           title="Total (PKR)"
-          value={formatMoney(summary.data?.total_income ?? 0)}
+          value={formatMoney(summary.data?.total_pkr ?? summary.data?.total_income ?? 0)}
           icon={Coins}
           variant="primary"
+        />
+        <StatusCard
+          title="Original currency"
+          value={
+            nonPkrTotals.length
+              ? nonPkrTotals
+                  .map((t) => formatMoney(t.amount, t.currency as ExpenseCurrency))
+                  .join(" · ")
+              : "PKR only"
+          }
+          icon={Coins}
         />
         <StatusCard
           title="Records"
