@@ -62,30 +62,30 @@ export default function TreasuryReportPage() {
           <div className="space-y-6">
             {/* P&L */}
             <Section title="Profit & loss" icon={Scale}>
-              <StatusCard title="Income" value={formatMoney(report.plIncome)} icon={TrendingUp} variant="success" />
-              <StatusCard title="Expenses" value={formatMoney(report.plExpenses)} icon={TrendingDown} variant="warning" />
-              <StatusCard title="Net profit" value={formatMoney(report.plNetProfit)} icon={Scale} variant="primary" />
-              <StatusCard title="Payroll" value={formatMoney(report.plPayroll)} icon={Wallet} variant="default" />
-              <StatusCard title="Equity distributed" value={formatMoney(report.plEquityDistributed)} icon={PieChart} variant="accent" />
-              <StatusCard title="Retained" value={formatMoney(report.plRetained)} icon={PiggyBank} variant="default" />
+              <StatusCard title="Income" value={formatMoney(report.profit_and_loss.income)} icon={TrendingUp} variant="success" />
+              <StatusCard title="Expenses" value={formatMoney(report.profit_and_loss.expenses)} icon={TrendingDown} variant="warning" />
+              <StatusCard title="Net profit" value={formatMoney(report.profit_and_loss.net_profit)} icon={Scale} variant="primary" />
+              <StatusCard title="Payroll" value={formatMoney(report.profit_and_loss.payroll)} icon={Wallet} variant="default" />
+              <StatusCard title="Equity distributed" value={formatMoney(report.profit_and_loss.equity_distributed)} icon={PieChart} variant="accent" />
+              <StatusCard title="Retained" value={formatMoney(report.profit_and_loss.retained)} icon={PiggyBank} variant="default" />
             </Section>
 
             {/* Cash flow */}
             <Section title="Cash flow" icon={ArrowLeftRight}>
-              <StatusCard title="Loans disbursed" value={formatMoney(report.loanDisbursed)} icon={HandCoins} variant="warning" />
-              <StatusCard title="Loans repaid" value={formatMoney(report.loanRepaid)} icon={ArrowDownLeft} variant="success" />
-              <StatusCard title="Adjustments net" value={formatMoney(report.adjustmentsNet)} icon={SlidersHorizontal} variant="default" />
-              <StatusCard title="Net change" value={formatMoney(report.netChange)} icon={ArrowLeftRight} variant="primary" />
+              <StatusCard title="Loans disbursed" value={formatMoney(report.cash_flow.loan_disbursed)} icon={HandCoins} variant="warning" />
+              <StatusCard title="Loans repaid" value={formatMoney(report.cash_flow.loan_repaid)} icon={ArrowDownLeft} variant="success" />
+              <StatusCard title="Adjustments net" value={formatMoney(report.cash_flow.adjustments_net)} icon={SlidersHorizontal} variant="default" />
+              <StatusCard title="Net change" value={formatMoney(report.cash_flow.net_change)} icon={ArrowLeftRight} variant="primary" />
             </Section>
 
             {/* Treasury snapshot */}
             <Section title="Treasury snapshot" icon={Landmark}>
-              <StatusCard title="Current balance" value={formatMoney(report.currentBalance)} icon={Landmark} variant="primary" />
-              <StatusCard title="Loans outstanding" value={formatMoney(report.loansOutstanding)} icon={Coins} variant="accent" />
+              <StatusCard title="Current balance" value={formatMoney(report.treasury.current_balance)} icon={Landmark} variant="primary" />
+              <StatusCard title="Loans outstanding" value={formatMoney(report.treasury.loans_outstanding)} icon={Coins} variant="accent" />
             </Section>
 
             <p className="text-center text-xs text-foreground-subtle">
-              Generated {formatOrdinalDate(report.generatedAt)}
+              Generated {formatOrdinalDate(report.generated_at)}
             </p>
           </div>
         )}

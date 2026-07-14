@@ -64,7 +64,7 @@ export default function DeviceDetailPage() {
                   <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                     <InfoItem label="Location" value={dev.location} />
                     <InfoItem label="Model" value={dev.model} />
-                    <InfoItem label="Last sync" value={dev.last_sync ? timeAgo(dev.last_sync) : "Never"} />
+                    <InfoItem label="Last sync" value={dev.last_seen_at ? timeAgo(dev.last_seen_at) : "Never"} />
                     <InfoItem label="Mappings" value={String(dev.mappings_count ?? mappings.length)} />
                   </dl>
                 </div>
@@ -120,9 +120,9 @@ export default function DeviceDetailPage() {
                   <div className="space-y-2">
                     {list.map((m) => (
                       <Card key={m.id} className="flex items-center gap-3 p-4">
-                        <Avatar name={m.employee_name} size="md" />
+                        <Avatar name={m.user_id?.full_name} size="md" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-foreground">{m.employee_name}</p>
+                          <p className="truncate font-medium text-foreground">{m.user_id?.full_name}</p>
                           <p className="truncate text-sm text-foreground-muted">
                             PIN <span className="font-mono text-foreground">{m.pin}</span>
                           </p>
@@ -169,7 +169,7 @@ export default function DeviceDetailPage() {
         onConfirm={() => {
           if (toRemove) removeMapping.mutate(toRemove.id, { onSettled: () => setToRemove(null) });
         }}
-        title={toRemove ? `Remove ${toRemove.employee_name}?` : "Remove mapping?"}
+        title={toRemove ? `Remove ${toRemove.user_id?.full_name}?` : "Remove mapping?"}
         description="This PIN will no longer be attributed to the employee."
         confirmLabel="Remove"
         variant="destructive"

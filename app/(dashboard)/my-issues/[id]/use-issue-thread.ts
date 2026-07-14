@@ -39,7 +39,7 @@ export function useIssueThread(id: string) {
           id: tempId,
           sender: "user",
           content: message,
-          created_at: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
           delivery: "sending",
         },
       ]);

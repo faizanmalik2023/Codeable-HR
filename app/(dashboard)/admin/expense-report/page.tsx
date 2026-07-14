@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Wallet, Repeat, Coins, Hash, HandCoins, FileText } from "lucide-react";
+import { Wallet, Repeat, Coins, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -14,13 +14,8 @@ import { CURRENCY_SYMBOL, type ExpenseCurrency } from "@/lib/enums";
 import {
   prettify,
   type AdminExpenseReport,
-  type ExpenseBreakdownItem,
 } from "@/lib/api/admin-expenses";
 import { useExpenseReport } from "./use-expense-report";
-
-function itemLabel(i: ExpenseBreakdownItem): string {
-  return i.label ?? prettify(i.type ?? i.key);
-}
 
 export default function ExpenseReportPage() {
   const { from, to, setFrom, setTo, query } = useExpenseReport();
@@ -66,65 +61,41 @@ export default function ExpenseReportPage() {
 }
 
 function Report({ data }: { data: AdminExpenseReport }) {
-  const currency: ExpenseCurrency = data.currency ?? "PKR";
-  const total = data.total ?? data.total_amount ?? 0;
-  const categories = data.by_category ?? [];
-  const payments = data.by_payment_method ?? [];
+  // Report amounts are already normalised to PKR (amount_pkr) server-side.
+  const currency: ExpenseCurrency = "PKR";
+  const summary = data.summary;
+  const categories = summary.by_category ?? [];
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatusCard
           title="Total spend"
-          value={formatMoney(total, currency)}
+          value={formatMoney(summary.total_spend, currency)}
           icon={Wallet}
           variant="primary"
         />
-        {typeof data.recurring_total === "number" && (
-          <StatusCard
-            title="Recurring"
-            value={formatMoney(data.recurring_total, currency)}
-            icon={Repeat}
-            variant="accent"
-          />
-        )}
-        {typeof data.one_time_total === "number" && (
-          <StatusCard
-            title="One-time"
-            value={formatMoney(data.one_time_total, currency)}
-            icon={Coins}
-            variant="success"
-          />
-        )}
-        {typeof data.reimbursable_total === "number" && (
-          <StatusCard
-            title="Reimbursable"
-            value={formatMoney(data.reimbursable_total, currency)}
-            icon={HandCoins}
-            variant="warning"
-          />
-        )}
-        {typeof data.count === "number" && (
-          <StatusCard
-            title="Entries"
-            value={String(data.count)}
-            icon={Hash}
-            variant="default"
-          />
-        )}
+        <StatusCard
+          title="Recurring"
+          value={formatMoney(summary.recurring_total, currency)}
+          icon={Repeat}
+          variant="accent"
+        />
+        <StatusCard
+          title="One-time"
+          value={formatMoney(summary.one_time_total, currency)}
+          icon={Coins}
+          variant="success"
+        />
       </div>
 
       {categories.length > 0 && (
         <BarSection
           title="By category"
-          items={categories.map((c) => ({ label: itemLabel(c), amount: c.amount }))}
-          currency={currency}
-        />
-      )}
-      {payments.length > 0 && (
-        <BarSection
-          title="By payment method"
-          items={payments.map((p) => ({ label: itemLabel(p), amount: p.amount }))}
+          items={categories.map((c) => ({
+            label: prettify(c.category),
+            amount: c.total,
+          }))}
           currency={currency}
         />
       )}

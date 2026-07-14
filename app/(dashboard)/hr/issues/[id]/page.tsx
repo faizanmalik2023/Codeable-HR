@@ -134,9 +134,9 @@ function IssueThread({
       {/* Header card */}
       <Card className="space-y-3 p-5">
         <h1 className="text-lg font-semibold text-foreground">{issue.title}</h1>
-        {issue.created_at && (
+        {issue.created_date && (
           <p className="text-sm text-foreground-muted">
-            Created {formatOrdinalDate(issue.created_at)}
+            Created {formatOrdinalDate(issue.created_date)}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
@@ -291,16 +291,18 @@ function MessageBubble({
   }
 
   // Employee message
+  const senderName = message.sender_employee?.full_name ?? "Employee";
+  const senderAvatar = message.sender_employee?.avatar;
   return (
     <div className="flex items-start gap-2.5">
-      {message.sender_avatar ? (
-        <Avatar size="sm" src={message.sender_avatar} name={message.sender_name} />
+      {senderAvatar ? (
+        <Avatar size="sm" src={senderAvatar} name={senderName} />
       ) : (
-        <Avatar size="sm" name={message.sender_name ?? "Employee"} />
+        <Avatar size="sm" name={senderName} />
       )}
       <div className="flex max-w-[80%] flex-col items-start gap-1">
         <span className="text-xs font-medium text-foreground-muted">
-          {message.sender_name ?? "Employee"}
+          {senderName}
         </span>
         <div className="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-secondary px-4 py-2.5 text-sm text-foreground">
           {message.content}
@@ -337,7 +339,7 @@ function dateLabel(input: string | undefined): string {
 function groupByDate(messages: IssueMessage[]): { label: string; messages: IssueMessage[] }[] {
   const groups: { label: string; messages: IssueMessage[] }[] = [];
   for (const message of messages) {
-    const label = dateLabel(message.created_at);
+    const label = dateLabel(message.timestamp);
     const last = groups[groups.length - 1];
     if (last && last.label === label) last.messages.push(message);
     else groups.push({ label, messages: [message] });

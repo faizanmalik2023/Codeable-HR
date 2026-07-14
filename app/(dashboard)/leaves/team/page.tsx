@@ -32,16 +32,24 @@ export default function TeamLeavesPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             {members.map((m) => (
               <Card
-                key={m.id}
+                key={m.employee?.id}
                 hover
                 className="flex cursor-pointer items-center gap-3 p-4"
-                onClick={() => router.push(`/leaves/team/${m.id}`)}
+                onClick={() => router.push(`/leaves/team/${m.employee?.id}`)}
               >
-                <Avatar name={m.full_name} src={m.avatar ?? undefined} size="md" />
+                <Avatar
+                  name={m.employee?.full_name}
+                  src={m.employee?.avatar ?? undefined}
+                  size="md"
+                />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-foreground">{m.full_name}</p>
-                  {m.designation && (
-                    <p className="truncate text-xs text-foreground-muted">{m.designation}</p>
+                  <p className="truncate font-medium text-foreground">
+                    {m.employee?.full_name}
+                  </p>
+                  {m.employee?.designation && (
+                    <p className="truncate text-xs text-foreground-muted">
+                      {m.employee.designation}
+                    </p>
                   )}
                 </div>
                 {typeof m.pending_count === "number" && m.pending_count > 0 && (

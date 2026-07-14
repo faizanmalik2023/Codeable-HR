@@ -147,7 +147,7 @@ export default function AddExpensePage() {
       vendor: d.vendor ?? "",
       description: d.description ?? "",
       payment_method: d.payment_method ?? "",
-      attachment: d.attachment ?? "",
+      attachment: d.attachment_path ?? "",
     });
     setAmountStr(d.amount ? String(d.amount) : "");
   }, [editing.data, reset]);
@@ -156,21 +156,26 @@ export default function AddExpensePage() {
   const pending = create.isPending || update.isPending;
   const isLast = step === STEPS.length - 1;
 
-  const toBody = (v: FormValues): ExpenseBody => ({
-    name: v.name,
-    type: v.type,
-    amount: v.amount,
-    item: v.item,
-    date: v.date,
-    payment_method: v.payment_method || undefined,
-    vendor: v.vendor || undefined,
-    description: v.description || undefined,
-    is_recurring: v.frequency === "recurring",
-    amount_type: v.frequency === "one_time" ? "one_time" : v.recurringType,
-    reimburse_to_employee_code: v.reimburse_to_employee_code || undefined,
-    attachment: v.attachment || undefined,
-    currency: v.currency,
-  });
+  const toBody = (v: FormValues): ExpenseBody => {
+    const isRecurring = v.frequency === "recurring";
+    return {
+      name: v.name,
+      type: v.type,
+      amount: v.amount,
+      item: v.item,
+      date: v.date,
+      payment_method: v.payment_method || undefined,
+      vendor: v.vendor || undefined,
+      description: v.description || undefined,
+      is_recurring: isRecurring,
+      // amount_type is only meaningful for recurring entries; the server rejects
+      // "one_time" here (its enum is fixed|variable), so omit it entirely otherwise.
+      ...(isRecurring ? { amount_type: v.recurringType } : {}),
+      reimburse_to_employee_code: v.reimburse_to_employee_code || undefined,
+      attachment: v.attachment || undefined,
+      currency: v.currency,
+    };
+  };
 
   const onSubmit = handleSubmit((v) =>
     (isEditing ? update : create).mutate(toBody(v)),

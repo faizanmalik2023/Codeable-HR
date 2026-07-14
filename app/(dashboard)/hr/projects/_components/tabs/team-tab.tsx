@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { ConfirmModal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
-import type { ProjectMember } from "@/lib/api/projects-mgmt";
+import { memberUserId, type ProjectMember } from "@/lib/api/projects-mgmt";
 import type { useProjectDetail } from "../../[id]/use-project-detail";
 import { MemberAddSheet, MemberEditSheet, memberAvatar, memberName } from "../member-sheet";
 import { roleLabel } from "../project-meta";
@@ -45,12 +45,12 @@ export function TeamTab({ projectId, members, pd }: TeamTabProps) {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {members.map((m) => (
-            <Card key={m.userId} className="flex items-center gap-3 p-4">
+            <Card key={m.id ?? memberUserId(m)} className="flex items-center gap-3 p-4">
               <Avatar name={memberName(m)} src={memberAvatar(m)} size="md" />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-foreground">{memberName(m)}</p>
                 <div className="mt-0.5 flex items-center gap-2">
-                  <Badge variant="secondary">{roleLabel(m.role)}</Badge>
+                  <Badge variant="secondary">{roleLabel(m.project_role)}</Badge>
                   {m.allocation != null && (
                     <span className="text-xs text-foreground-muted">{m.allocation}%</span>
                   )}
@@ -84,7 +84,10 @@ export function TeamTab({ projectId, members, pd }: TeamTabProps) {
         isPending={pd.updateMember.isPending}
         onSubmit={(body) =>
           editing &&
-          pd.updateMember.mutate({ userId: editing.userId, body }, { onSuccess: () => setEditing(null) })
+          pd.updateMember.mutate(
+            { userId: memberUserId(editing), body },
+            { onSuccess: () => setEditing(null) }
+          )
         }
       />
 
@@ -92,7 +95,8 @@ export function TeamTab({ projectId, members, pd }: TeamTabProps) {
         open={!!removing}
         onClose={() => setRemoving(null)}
         onConfirm={() =>
-          removing && pd.removeMember.mutate(removing.userId, { onSettled: () => setRemoving(null) })
+          removing &&
+          pd.removeMember.mutate(memberUserId(removing), { onSettled: () => setRemoving(null) })
         }
         title="Remove member?"
         description={`${memberName(removing)} will be removed from this project.`}

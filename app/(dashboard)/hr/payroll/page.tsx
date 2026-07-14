@@ -53,7 +53,7 @@ export default function HrPayrollPage() {
       render: (s) => (
         <div className="flex items-center gap-3">
           <Avatar
-            src={s.employee?.avatar}
+            src={s.employee?.avatar ?? undefined}
             name={s.employee?.full_name}
             size="sm"
           />
@@ -84,7 +84,7 @@ export default function HrPayrollPage() {
       header: "Net",
       align: "right",
       render: (s) => (
-        <span className="font-medium text-foreground">{formatMoney(s.net)}</span>
+        <span className="font-medium text-foreground">{formatMoney(s.net_amount)}</span>
       ),
     },
   ];
@@ -180,7 +180,7 @@ export default function HrPayrollPage() {
               columns={columns}
               data={items}
               rowKey={(s) => s.id}
-              onRowClick={(s) => router.push(`/payroll/slip/${s.id}`)}
+              onRowClick={(s) => router.push(`/payroll/slip/${s.slip_id}`)}
               isLoading={query.isFetching && !query.data}
             />
           )}

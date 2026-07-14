@@ -1,6 +1,9 @@
 /**
- * Domain models — mirror the backend API shapes from the CodeableHR specs.
- * snake_case keys match the wire format so mappers stay thin.
+ * Domain models — mirror the backend API wire shapes exactly.
+ * The API client (`lib/api/client.ts`) returns the envelope's `data` verbatim
+ * with NO case transform, so every field here is snake_case and matches what the
+ * backend `wireKeys` serializer emits (`_id` → `id`, camelCase → snake_case).
+ * Nested refs (employee, department, employment) are objects, not flat strings.
  */
 
 import type {
@@ -36,19 +39,29 @@ export interface AuthTokens {
   refresh_token: string;
 }
 
+/** `formatDepartmentRef` output — a department reference is an OBJECT, not a string. */
+export interface DepartmentRef {
+  id?: string;
+  name?: string;
+  image_url?: string | null;
+}
+
+/** `formatEmployeeRef` output. `department` is a nested {@link DepartmentRef}. */
 export interface EmployeeRef {
   id?: string;
   employee_code?: string;
   full_name?: string;
   name?: string;
-  avatar?: string;
-  department?: string;
+  avatar?: string | null;
+  department?: DepartmentRef;
   designation?: string;
 }
 
 export interface Employment {
   designation?: string;
-  department?: string;
+  department?: DepartmentRef;
+  manager?: string | null;
+  manager_id?: string | null;
   joined_at?: string;
   employment_type?: EmploymentType;
 }
@@ -91,10 +104,11 @@ export interface ApiEnvelope<T> {
   error: ApiError | null;
 }
 
+/** Wire shape from `buildPagination` after snake_casing. */
 export interface Pagination {
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
+  current_page: number;
+  total_pages: number;
+  total_items: number;
 }
 
 export interface Paginated<T> {
@@ -109,7 +123,7 @@ export interface Paginated<T> {
 export interface LeaveBalance {
   leave_type: LeaveType | string;
   name: string;
-  total: number;
+  quota: number;
   used: number;
   remaining: number;
 }
@@ -118,23 +132,50 @@ export interface UpcomingHoliday {
   id: string;
   name: string;
   date: string;
-  daysUntil?: number;
+  days_left?: number;
 }
 
+/** Dashboard birthday item — the employee is nested. */
 export interface Birthday {
-  employee_code: string;
-  name: string;
-  birthday: string;
-  avatar?: string | null;
+  employee: EmployeeRef;
+  date: string;
+  is_today?: boolean;
 }
 
 export interface ActivityItemModel {
   id: string;
   title: string;
+  /** Standalone `/activity` uses `subtitle`; the dashboard section uses `body`. */
   subtitle?: string;
+  body?: string;
   type: string;
-  timestamp: string;
+  category?: string;
+  timestamp?: string;
   time_ago?: string;
+}
+
+/** `at_a_glance.total_hours_worked` is an object, not a number. */
+export interface GlanceHours {
+  hours?: number;
+  minutes?: number;
+}
+
+export interface GlanceNextSalary {
+  date?: string;
+  days_left?: number;
+}
+
+export interface GlanceNextHoliday {
+  name?: string;
+  date?: string;
+  image?: string | null;
+}
+
+/** Dashboard/HR "on leave today" item — the employee is nested. */
+export interface OnLeaveTodayModel {
+  employee: EmployeeRef;
+  return_date?: string;
+  leave_type?: string;
 }
 
 export interface DashboardModel {
@@ -142,11 +183,10 @@ export interface DashboardModel {
   current_date?: string;
   eod_pending: boolean;
   at_a_glance?: {
-    total_hours_worked?: number;
+    total_hours_worked?: GlanceHours;
     attendance_status?: CheckInStatus;
-    next_salary?: number | string;
-    next_holiday?: string;
-    attendance_percentage?: number;
+    next_salary?: GlanceNextSalary;
+    next_holiday?: GlanceNextHoliday;
   };
   leave_balance?: LeaveBalance[];
   upcoming_holidays?: UpcomingHoliday[];
@@ -154,16 +194,16 @@ export interface DashboardModel {
   recent_activity?: ActivityItemModel[];
   team_eod_updates?: TeamMemberModel[];
   team_leave_requests?: LeaveModel[];
-  on_leave_today?: EmployeeRef[];
+  on_leave_today?: OnLeaveTodayModel[];
   open_tickets?: IssueModel[];
   pending_leaves?: LeaveModel[];
   org_stats?: {
-    totalEmployees?: number;
-    activeEmployees?: number;
-    onLeaveToday?: number;
+    total_employees?: number;
+    present_today?: number;
+    on_leave?: number;
     birthdays?: number;
   };
-  department_distribution?: { departmentName: string; employeeCount: number }[];
+  department_distribution?: { department_name?: string; employee_count?: number }[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -177,6 +217,8 @@ export interface LeaveModel {
   leave_type: LeaveType | string;
   leave_type_name?: string;
   total_days?: number;
+  /** Dashboard `pending_leaves` items use `days` rather than `total_days`. */
+  days?: number;
   paid_days?: number;
   unpaid_days?: number;
   duration?: LeaveDuration;
@@ -224,9 +266,9 @@ export interface EodReportModel {
   date: string;
   status: EodStatus;
   summary: string;
+  /** The project's name is emitted as `portal` (there is no `project_name`). */
   portal?: string;
   project_id?: string;
-  project_name?: string;
   hours?: number;
   blockers?: string;
   tomorrow_plan?: string;
@@ -237,13 +279,10 @@ export interface EodReportModel {
   updated_at?: string;
 }
 
+/** Team roster item (EOD team + leave team) — the employee is nested. */
 export interface TeamMemberModel {
-  id: string;
-  employee_code?: string;
-  full_name: string;
-  avatar?: string | null;
-  designation?: string;
-  unread_count?: number;
+  employee: EmployeeRef;
+  unread_eod_count?: number;
   pending_count?: number;
 }
 
@@ -251,9 +290,8 @@ export interface TeamMemberModel {
 /* Attendance                                                          */
 /* ------------------------------------------------------------------ */
 export interface AttendanceSession {
-  check_in?: string;
-  check_out?: string;
-  hours_worked?: number;
+  in?: string;
+  out?: string;
 }
 
 export interface AttendanceDay {
@@ -268,12 +306,13 @@ export interface AttendanceDay {
 
 export interface AttendanceMonthModel {
   summary: {
-    present_days?: number;
-    absent_days?: number;
-    leave_days?: number;
-    late_days?: number;
-    total_hours?: number;
-    avgDailyHours?: number;
+    present?: number;
+    absent?: number;
+    late?: number;
+    half_day?: number;
+    on_leave?: number;
+    holiday?: number;
+    avg_daily_hours?: number;
   };
   items: AttendanceDay[];
 }
@@ -281,12 +320,6 @@ export interface AttendanceMonthModel {
 /* ------------------------------------------------------------------ */
 /* Claims                                                              */
 /* ------------------------------------------------------------------ */
-export interface Attachment {
-  key?: string;
-  url: string;
-  name?: string;
-}
-
 export interface InsuranceClaimModel {
   id: string;
   date?: string;
@@ -295,7 +328,10 @@ export interface InsuranceClaimModel {
   reason_display?: string;
   amount: number;
   note?: string;
-  attachments?: Attachment[];
+  /** Wire `attachments` is a `string[]` of URLs; single doc also on `attachment_path`. */
+  attachments?: string[];
+  attachment_path?: string | null;
+  attachment_name?: string | null;
   applied_date?: string;
   reviewed_by?: EmployeeRef;
   response_date?: string;
@@ -312,7 +348,9 @@ export interface ExpenseClaimModel {
   amount: number;
   description?: string;
   applied_date?: string;
-  attachments?: Attachment[];
+  attachments?: string[];
+  attachment_path?: string | null;
+  attachment_name?: string | null;
   reviewed_by?: EmployeeRef;
   response_date?: string;
   response_note?: string;
@@ -329,9 +367,10 @@ export interface IssueMessage {
   id?: string;
   sender: MessageSender;
   content: string;
-  created_at?: string;
-  sender_name?: string;
-  sender_avatar?: string | null;
+  /** `formatMessage` emits `timestamp` (not `created_at`). */
+  timestamp?: string;
+  /** Sender identity is nested under `sender_employee`. */
+  sender_employee?: EmployeeRef;
   delivery?: MessageDeliveryStatus;
 }
 
@@ -344,7 +383,8 @@ export interface IssueModel {
   priority: IssuePriority;
   is_anonymous?: boolean;
   assigned_to?: EmployeeRef | string;
-  created_at?: string;
+  /** `formatTicket` emits `created_date`. */
+  created_date?: string;
   messages?: IssueMessage[];
 }
 
@@ -352,40 +392,56 @@ export interface IssueModel {
 /* Salary                                                              */
 /* ------------------------------------------------------------------ */
 export interface SalaryLineItem {
-  label: string;
+  name: string;
   amount: number;
 }
 
+/** `formatBreakdown` output — flat named component fields (snake_case). */
 export interface SalaryBreakdownModel {
-  basic?: number;
-  allowances?: SalaryLineItem[];
-  deductions?: SalaryLineItem[];
+  basic_salary?: number;
+  house_rent?: number;
+  medical?: number;
+  transport?: number;
+  utility?: number;
   tax?: number;
   provident_fund?: number;
-  net?: number;
-  gross?: number;
-  configured?: boolean;
+  insurance?: number;
+  loan_deduction?: number;
+  total_provident_fund_collected?: number;
+  gross_salary?: number;
+  net_salary?: number;
+  total_deductions?: number;
+  [k: string]: number | null | undefined;
 }
 
 export interface SalaryRevisionModel {
   id: string;
-  type: SalaryRevisionType;
+  revision_type: SalaryRevisionType;
   effective_date: string;
-  amount?: number;
-  designation?: string;
-  note?: string;
+  new_salary?: number;
+  previous_salary?: number | null;
+  increment_amount?: number | null;
+  increment_percentage?: number | null;
+  note?: string | null;
+  created_at?: string;
 }
 
 export interface SalarySlipModel {
   id: string;
+  slip_id?: string;
+  user_id?: string | null;
   month: number | string;
   year: number;
   status: SalarySlipStatus;
-  gross?: number;
-  net?: number;
   basic_salary?: number;
   earnings?: SalaryLineItem[];
   deductions?: SalaryLineItem[];
+  gross_amount?: number;
+  net_amount?: number;
+  unpaid_leave_days?: number;
+  download_url?: string | null;
+  created_at?: string;
+  employee?: EmployeeRef;
 }
 
 /* ------------------------------------------------------------------ */
@@ -413,38 +469,70 @@ export interface NotificationModel {
   time_ago?: string;
 }
 
+/** Profile loans — `formatLoans` output (snake_case, flat). */
 export interface LoanModel {
   id?: string;
-  title: string;
-  totalAmount: number;
-  remainingAmount: number;
-  totalInstallments?: number;
-  paidInstallments?: number;
-  startDate?: string;
-  monthlyDeduction?: number;
+  name: string;
+  principal: number;
+  monthly_deduction?: number;
+  amount_repaid?: number;
+  balance_remaining: number;
+  start_month?: string;
+  status?: string;
+  total_installments?: number | null;
+  installments_paid?: number;
+  start_date?: string | null;
 }
 
+/** Profile perks — `formatPerks` output. */
 export interface PerkModel {
-  title: string;
-  description?: string;
-  status: "active" | "upcoming" | "expired";
+  key?: string;
+  name: string;
+  description?: string | null;
+  enabled: boolean;
+  amount?: number | null;
+  percentage?: number | null;
+}
+
+/** Profile salary block — `formatSalary` output (nullable). */
+export interface SalaryObject {
+  basic_salary?: number;
+  gross_salary?: number;
+  net_salary?: number;
+  components?: { name: string; amount: number }[];
+  effective_date?: string;
+}
+
+export interface ManagedTeam {
+  id?: string;
+  name?: string;
+  member_count?: number;
 }
 
 export interface ProfileModel {
-  employeeCode?: string;
-  name: string;
+  id?: string;
   email: string;
-  position?: string;
-  department?: string;
-  manager?: string;
-  salary?: number;
-  dateOfJoining?: string;
-  birthday?: string;
-  phone?: string;
+  full_name: string;
+  father_name?: string | null;
+  gender?: string | null;
+  employee_code?: string | null;
   avatar?: string | null;
-  cnic?: string;
-  emergencyContact?: EmergencyContact;
-  employmentType?: EmploymentType;
+  dob?: string | null;
+  cnic?: string | null;
+  phone?: string | null;
+  personal_email?: string | null;
+  address?: string | null;
+  bank_name?: string | null;
+  account_number?: string | null;
+  payment_method?: string | null;
+  emergency_contact?: EmergencyContact | null;
+  employment?: Employment;
+  role?: UserRole | string | null;
+  is_manager?: boolean;
+  managed_teams?: ManagedTeam[];
+  status?: string;
+  has_password?: boolean;
+  salary?: SalaryObject | null;
   loans?: LoanModel[];
   perks?: PerkModel[];
 }

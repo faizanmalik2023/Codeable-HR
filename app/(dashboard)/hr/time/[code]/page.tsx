@@ -137,11 +137,11 @@ export default function HrEmployeeAttendancePage() {
         <SkeletonStats count={5} />
       ) : summary ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          <StatusCard title="Present" value={String(summary.present_days ?? 0)} icon={CheckCircle2} variant="success" />
-          <StatusCard title="Absent" value={String(summary.absent_days ?? 0)} icon={XCircle} variant="warning" />
-          <StatusCard title="Late" value={String(summary.late_days ?? 0)} icon={Clock} variant="accent" />
-          <StatusCard title="On Leave" value={String(summary.leave_days ?? 0)} icon={Palmtree} variant="primary" />
-          <StatusCard title="Avg / Day" value={hoursLabel(summary.avgDailyHours)} icon={Timer} variant="default" />
+          <StatusCard title="Present" value={String(summary.present ?? 0)} icon={CheckCircle2} variant="success" />
+          <StatusCard title="Absent" value={String(summary.absent ?? 0)} icon={XCircle} variant="warning" />
+          <StatusCard title="Late" value={String(summary.late ?? 0)} icon={Clock} variant="accent" />
+          <StatusCard title="On Leave" value={String(summary.on_leave ?? 0)} icon={Palmtree} variant="primary" />
+          <StatusCard title="Avg / Day" value={hoursLabel(summary.avg_daily_hours)} icon={Timer} variant="default" />
         </div>
       ) : null}
 
@@ -209,15 +209,12 @@ export default function HrEmployeeAttendancePage() {
                   >
                     <div className="space-y-1.5 text-sm">
                       <span className="flex items-center gap-2 text-foreground">
-                        <LogIn className="h-4 w-4 text-success" /> {clock(s.check_in)}
+                        <LogIn className="h-4 w-4 text-success" /> {clock(s.in)}
                       </span>
                       <span className="flex items-center gap-2 text-foreground">
-                        <LogOut className="h-4 w-4 text-destructive" /> {clock(s.check_out)}
+                        <LogOut className="h-4 w-4 text-destructive" /> {clock(s.out)}
                       </span>
                     </div>
-                    <Badge variant="muted" className="text-sm font-semibold">
-                      {hoursLabel(s.hours_worked)}
-                    </Badge>
                   </div>
                 ))}
               </div>

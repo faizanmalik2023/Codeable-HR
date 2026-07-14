@@ -29,17 +29,11 @@ export function useTreasury() {
     queryFn: () => adminTreasuryApi.analytics({}),
   });
 
-  const opening = useQuery({
-    queryKey: adminTreasuryKeys.opening(),
-    queryFn: () => adminTreasuryApi.opening(),
-  });
-
   const setOpening = useMutation({
     mutationFn: (body: SetOpeningBody) => adminTreasuryApi.setOpening(body),
     onSuccess: () => {
       toast.success("Opening balance updated");
       qc.invalidateQueries({ queryKey: adminTreasuryKeys.overview() });
-      qc.invalidateQueries({ queryKey: adminTreasuryKeys.opening() });
       qc.invalidateQueries({ queryKey: adminTreasuryKeys.analytics() });
     },
     onError: (e) => toast.error(errMsg(e, "Couldn't update opening balance")),
@@ -48,8 +42,9 @@ export function useTreasury() {
   return {
     overview,
     analytics,
-    opening,
     setOpening,
-    points: analytics.data ?? [],
+    // Analytics is a nested object `{ range, currency, totals, monthly }`; the chart
+    // plots the monthly cash-flow points.
+    points: analytics.data?.monthly ?? [],
   };
 }

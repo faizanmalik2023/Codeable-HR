@@ -35,7 +35,7 @@ export function usePayroll() {
     let sent = 0;
     let pending = 0;
     for (const s of slips) {
-      netTotal += s.net ?? 0;
+      netTotal += s.net_amount ?? 0;
       if (s.status === "generated") sent += 1;
       else pending += 1;
     }
@@ -62,7 +62,7 @@ export function usePayroll() {
   const release = useMutation({
     mutationFn: () => payrollApi.release({ month, year }),
     onSuccess: (res) => {
-      const released = res.total - res.failed;
+      const released = res.released;
       toast.success(
         `Released ${released} payslip${released === 1 ? "" : "s"}` +
           (res.failed > 0 ? ` · ${res.failed} failed` : "")

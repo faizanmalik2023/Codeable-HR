@@ -35,10 +35,10 @@ export function ActivityTab({ pd }: ActivityTabProps) {
         {(list) => (
           <div className="space-y-3">
             {list.map((eod) => {
-              const name = eod.member?.full_name || eod.member?.name || "Team member";
+              const name = eod.employee?.full_name || eod.employee?.name || "Team member";
               return (
                 <Card key={eod.id} className="flex gap-3 p-4">
-                  <Avatar name={name} src={eod.member?.avatar ?? undefined} size="md" />
+                  <Avatar name={name} src={eod.employee?.avatar ?? undefined} size="md" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
                       <p className="truncate text-sm font-medium text-foreground">{name}</p>
@@ -58,10 +58,10 @@ export function ActivityTab({ pd }: ActivityTabProps) {
         )}
       </QueryState>
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between text-sm text-foreground-muted">
           <span>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.current_page} of {pagination.total_pages}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={eodPage <= 1} onClick={() => setEodPage(eodPage - 1)}>
@@ -70,7 +70,7 @@ export function ActivityTab({ pd }: ActivityTabProps) {
             <Button
               variant="outline"
               size="sm"
-              disabled={eodPage >= pagination.totalPages}
+              disabled={eodPage >= pagination.total_pages}
               onClick={() => setEodPage(eodPage + 1)}
             >
               Next

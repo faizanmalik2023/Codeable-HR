@@ -41,21 +41,9 @@ import type {
   LoanModel,
   PerkModel,
   ProfileModel,
+  SalaryObject,
 } from "@/types";
-import type { Tone } from "@/lib/enums";
 import { useProfile } from "./use-profile";
-
-const PERK_TONE: Record<PerkModel["status"], Tone> = {
-  active: "success",
-  upcoming: "warning",
-  expired: "muted",
-};
-
-const PERK_LABEL: Record<PerkModel["status"], string> = {
-  active: "Active",
-  upcoming: "Upcoming",
-  expired: "Expired",
-};
 
 export default function ProfilePage() {
   const { query, profile, update, uploadAvatar, deleteAvatar } = useProfile();
@@ -136,20 +124,20 @@ function HeaderCard({
           className="group relative rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="Change photo"
         >
-          <Avatar name={profile.name} src={profile.avatar ?? undefined} size="xl" />
+          <Avatar name={profile.full_name} src={profile.avatar ?? undefined} size="xl" />
           <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
             <Camera className="h-5 w-5 text-white" />
           </span>
         </button>
 
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-bold text-foreground">{profile.name}</h2>
-          {profile.position && (
-            <p className="text-sm text-foreground-muted">{profile.position}</p>
+          <h2 className="text-xl font-bold text-foreground">{profile.full_name}</h2>
+          {profile.employment?.designation && (
+            <p className="text-sm text-foreground-muted">{profile.employment.designation}</p>
           )}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-            {profile.employeeCode && (
-              <Badge variant="secondary">{profile.employeeCode}</Badge>
+            {profile.employee_code && (
+              <Badge variant="secondary">{profile.employee_code}</Badge>
             )}
             <span className="inline-flex items-center gap-1.5 text-sm text-foreground-muted">
               <Mail className="h-3.5 w-3.5" />
@@ -180,7 +168,7 @@ function HeaderCard({
         size="sm"
       >
         <div className="flex flex-col items-center gap-5">
-          <Avatar name={profile.name} src={profile.avatar ?? undefined} size="xl" />
+          <Avatar name={profile.full_name} src={profile.avatar ?? undefined} size="xl" />
           <div className="w-full space-y-3">
             <Button
               className="w-full gap-2"
@@ -214,7 +202,7 @@ function HeaderCard({
 /* ------------------------------------------------------------------ */
 /* Compensation                                                        */
 /* ------------------------------------------------------------------ */
-function CompensationCard({ salary }: { salary?: number }) {
+function CompensationCard({ salary }: { salary?: SalaryObject | null }) {
   const [show, setShow] = React.useState(false);
 
   return (
@@ -232,7 +220,7 @@ function CompensationCard({ salary }: { salary?: number }) {
           </button>
         </div>
         <p className="mt-1 text-2xl font-bold text-foreground">
-          {show ? formatMoney(salary) : "••••••"}
+          {show ? formatMoney(salary?.net_salary) : "••••••"}
         </p>
       </div>
       <Link
@@ -260,7 +248,7 @@ function PersonalInfoCard({
 }) {
   const [phoneOpen, setPhoneOpen] = React.useState(false);
   const [contactOpen, setContactOpen] = React.useState(false);
-  const contact = profile.emergencyContact;
+  const contact = profile.emergency_contact;
 
   return (
     <SectionCard title="Personal Information" icon={IdCard}>
@@ -276,7 +264,7 @@ function PersonalInfoCard({
         <InfoRow
           icon={Cake}
           label="Birthday"
-          value={profile.birthday ? formatOrdinalDate(profile.birthday) : undefined}
+          value={profile.dob ? formatOrdinalDate(profile.dob) : undefined}
         />
         <InfoRow
           icon={HeartPulse}
@@ -306,7 +294,7 @@ function PersonalInfoCard({
       <EditContactModal
         open={contactOpen}
         onClose={() => setContactOpen(false)}
-        initial={contact}
+        initial={contact ?? undefined}
         saving={saving}
         onSubmit={async (emergency_contact) => {
           await onSave({ emergency_contact });
@@ -460,19 +448,23 @@ function EmploymentCard({ profile }: { profile: ProfileModel }) {
   return (
     <SectionCard title="Employment" icon={Briefcase}>
       <dl className="divide-y divide-border">
-        <InfoRow icon={BadgeCheck} label="Designation" value={profile.position} />
-        <InfoRow icon={Building2} label="Department" value={profile.department} />
+        <InfoRow icon={BadgeCheck} label="Designation" value={profile.employment?.designation} />
+        <InfoRow icon={Building2} label="Department" value={profile.employment?.department?.name} />
         <InfoRow
           icon={CalendarDays}
           label="Join date"
-          value={profile.dateOfJoining ? formatOrdinalDate(profile.dateOfJoining) : undefined}
+          value={profile.employment?.joined_at ? formatOrdinalDate(profile.employment.joined_at) : undefined}
         />
         <InfoRow
           icon={Briefcase}
           label="Employment type"
-          value={profile.employmentType ? EMPLOYMENT_TYPE_LABELS[profile.employmentType] : undefined}
+          value={
+            profile.employment?.employment_type
+              ? EMPLOYMENT_TYPE_LABELS[profile.employment.employment_type]
+              : undefined
+          }
         />
-        <InfoRow icon={UserCog} label="Reports to" value={profile.manager} />
+        <InfoRow icon={UserCog} label="Reports to" value={profile.employment?.manager} />
       </dl>
     </SectionCard>
   );
@@ -498,17 +490,17 @@ function LoansCard({ loans }: { loans: LoanModel[] }) {
 }
 
 function LoanRow({ loan }: { loan: LoanModel }) {
-  const total = loan.totalAmount || 0;
-  const remaining = loan.remainingAmount ?? 0;
+  const total = loan.principal || 0;
+  const remaining = loan.balance_remaining ?? 0;
   const paidAmount = Math.max(total - remaining, 0);
   const paidPct = total > 0 ? Math.min(Math.round((paidAmount / total) * 100), 100) : 0;
-  const paidInst = loan.paidInstallments;
-  const totalInst = loan.totalInstallments;
+  const paidInst = loan.installments_paid;
+  const totalInst = loan.total_installments;
 
   return (
     <div className="rounded-[var(--radius-lg)] border border-border bg-secondary/30 p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-foreground">{loan.title}</p>
+        <p className="text-sm font-semibold text-foreground">{loan.name}</p>
         <p className="text-right text-sm font-medium text-foreground">
           {formatMoney(remaining)}
           <span className="text-foreground-subtle"> / {formatMoney(total)}</span>
@@ -538,16 +530,18 @@ function PerksCard({ perks }: { perks: PerkModel[] }) {
         <div className="space-y-3">
           {perks.map((perk, i) => (
             <div
-              key={`${perk.title}-${i}`}
+              key={perk.key ?? `${perk.name}-${i}`}
               className="flex items-start justify-between gap-3 rounded-[var(--radius-lg)] border border-border bg-secondary/30 p-3"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{perk.title}</p>
+                <p className="text-sm font-medium text-foreground">{perk.name}</p>
                 {perk.description && (
                   <p className="mt-0.5 text-xs text-foreground-muted">{perk.description}</p>
                 )}
               </div>
-              <Badge variant={PERK_TONE[perk.status]}>{PERK_LABEL[perk.status]}</Badge>
+              <Badge variant={perk.enabled ? "success" : "muted"}>
+                {perk.enabled ? "Active" : "Inactive"}
+              </Badge>
             </div>
           ))}
         </div>

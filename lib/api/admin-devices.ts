@@ -13,24 +13,32 @@ export interface DeviceModel {
   model?: string | null;
   comm_key?: string | null;
   is_active: boolean;
-  last_sync?: string | null;
+  last_seen_at?: string | null;
   mappings_count?: number;
+}
+
+/** The populated employee on a device mapping (server populates `user_id`). */
+export interface DeviceMappingUser {
+  id?: string;
+  full_name: string;
+  email?: string | null;
+  employee_code?: string | null;
 }
 
 /** A PIN → employee mapping on a device. */
 export interface DeviceMapping {
   id: string;
   pin: string;
-  user_id: string;
-  employee_name: string;
+  /** Populated employee reference on reads. */
+  user_id: DeviceMappingUser;
   created_at?: string | null;
 }
 
 /** A raw punch whose PIN isn't mapped to any employee yet. */
 export interface UnmappedPunch {
   pin: string;
-  device: string;
-  timestamp: string;
+  device_serial: string;
+  punched_at: string;
 }
 
 /** `GET /admin/devices` — accepts a bare array or an `{ items }` envelope. */

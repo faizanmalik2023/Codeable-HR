@@ -83,7 +83,7 @@ export default function AnnouncementPage() {
     };
     send.mutate(payload, {
       onSuccess: (res) => {
-        const n = res?.recipients;
+        const n = res?.recipient_count;
         toast.success(
           typeof n === "number" ? `Announcement sent to ${n} recipients` : "Announcement sent"
         );

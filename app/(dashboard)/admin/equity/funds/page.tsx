@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { QueryState } from "@/components/shared/query-state";
-import { formatMoney, formatOrdinalDate } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import type { Fund } from "@/lib/api/admin-equity";
 import { useFunds } from "./use-funds";
 
@@ -17,10 +17,10 @@ export default function FundsPage() {
 
   const columns: DataTableColumn<Fund>[] = [
     {
-      key: "beneficiary",
+      key: "name",
       header: "Beneficiary",
       render: (f) => (
-        <span className="font-medium text-foreground">{f.beneficiary}</span>
+        <span className="font-medium text-foreground">{f.name}</span>
       ),
     },
     {
@@ -29,22 +29,7 @@ export default function FundsPage() {
       align: "right",
       render: (f) => (
         <span className="font-medium text-foreground">
-          {formatMoney(f.balance, f.currency)}
-        </span>
-      ),
-    },
-    {
-      key: "currency",
-      header: "Currency",
-      render: (f) => <span className="text-foreground-muted">{f.currency}</span>,
-    },
-    {
-      key: "last_update",
-      header: "Last update",
-      align: "right",
-      render: (f) => (
-        <span className="text-foreground-muted">
-          {f.last_update ? formatOrdinalDate(f.last_update) : "—"}
+          {formatMoney(f.balance, "PKR")}
         </span>
       ),
     },
@@ -74,7 +59,7 @@ export default function FundsPage() {
             <DataTable
               columns={columns}
               data={rows}
-              rowKey={(f) => f.beneficiary}
+              rowKey={(f) => f.beneficiary_id ?? f.name}
               isLoading={query.isFetching && !query.data}
               empty={
                 <EmptyState

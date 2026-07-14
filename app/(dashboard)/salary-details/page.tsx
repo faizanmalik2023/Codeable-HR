@@ -97,8 +97,8 @@ function BreakdownSection({
   if (isError && !data)
     return <ErrorState message="We couldn't load your salary breakdown." onRetry={() => refetch()} />;
 
-  const configured = data && data.configured !== false;
-  if (!configured) {
+  // Backend sends `{ breakdown: null }` when nothing is configured (no `configured` flag).
+  if (data == null) {
     return (
       <Card className="flex items-center gap-4 border-warning/30 bg-warning-muted/40 p-5">
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-warning text-warning-foreground">
@@ -114,8 +114,18 @@ function BreakdownSection({
     );
   }
 
-  const b = data!;
+  const b = data;
   const pf = b.provident_fund ?? 0;
+  const earnings: { label: string; amount?: number }[] = [
+    { label: "House Rent", amount: b.house_rent },
+    { label: "Medical", amount: b.medical },
+    { label: "Transport", amount: b.transport },
+    { label: "Utility", amount: b.utility },
+  ];
+  const deductions: { label: string; amount?: number }[] = [
+    { label: "Tax", amount: b.tax },
+    { label: "Insurance", amount: b.insurance },
+  ];
 
   return (
     <div className="space-y-4">
@@ -126,25 +136,27 @@ function BreakdownSection({
         </div>
 
         <div className="divide-y divide-border">
-          {typeof b.basic === "number" && <LineRow label="Basic" amount={b.basic} />}
-
-          {(b.allowances ?? []).map((a, i) => (
-            <LineRow key={`al-${i}`} label={a.label} amount={a.amount} sign="+" tone="success" />
-          ))}
-
-          {(b.deductions ?? []).map((d, i) => (
-            <LineRow key={`de-${i}`} label={d.label} amount={d.amount} sign="-" tone="destructive" />
-          ))}
-
-          {typeof b.tax === "number" && b.tax > 0 && (
-            <LineRow label="Tax" amount={b.tax} sign="-" tone="destructive" />
+          {typeof b.basic_salary === "number" && (
+            <LineRow label="Basic" amount={b.basic_salary} />
           )}
+
+          {earnings
+            .filter((e) => typeof e.amount === "number" && e.amount > 0)
+            .map((e, i) => (
+              <LineRow key={`al-${i}`} label={e.label} amount={e.amount!} sign="+" tone="success" />
+            ))}
+
+          {deductions
+            .filter((d) => typeof d.amount === "number" && d.amount > 0)
+            .map((d, i) => (
+              <LineRow key={`de-${i}`} label={d.label} amount={d.amount!} sign="-" tone="destructive" />
+            ))}
 
           {pf > 0 && <LineRow label="Provident Fund" amount={pf} sign="-" tone="destructive" />}
 
           <div className="flex items-center justify-between pt-4">
             <span className="text-base font-semibold text-foreground">Net Salary</span>
-            <span className="text-xl font-bold text-primary">{formatMoney(b.net)}</span>
+            <span className="text-xl font-bold text-primary">{formatMoney(b.net_salary)}</span>
           </div>
         </div>
       </Card>
@@ -210,17 +222,14 @@ function Timeline({ revisions }: { revisions: SalaryRevisionModel[] }) {
             <div>
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-foreground">
-                  {SALARY_REVISION_LABELS[r.type] ?? r.type}
+                  {SALARY_REVISION_LABELS[r.revision_type] ?? r.revision_type}
                 </p>
-                {r.designation && (
-                  <Badge variant="secondary">{r.designation}</Badge>
-                )}
               </div>
               <p className="text-xs text-foreground-muted">{formatOrdinalDate(r.effective_date)}</p>
               {r.note && <p className="mt-1 text-sm text-foreground-muted">{r.note}</p>}
             </div>
-            {typeof r.amount === "number" && (
-              <span className="font-semibold text-foreground">{formatMoney(r.amount)}</span>
+            {typeof r.new_salary === "number" && (
+              <span className="font-semibold text-foreground">{formatMoney(r.new_salary)}</span>
             )}
           </div>
         </li>
@@ -270,7 +279,7 @@ function SlipsTable({
         </Badge>
       ),
     },
-    { key: "net", header: "Net", align: "right", render: (s) => formatMoney(s.net) },
+    { key: "net", header: "Net", align: "right", render: (s) => formatMoney(s.net_amount) },
     {
       key: "actions",
       header: "",

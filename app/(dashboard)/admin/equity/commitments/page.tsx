@@ -145,10 +145,10 @@ export default function CommitmentsPage() {
         </QueryState>
       </Card>
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between text-sm text-foreground-muted">
           <span>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.current_page} of {pagination.total_pages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -162,7 +162,7 @@ export default function CommitmentsPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= pagination.totalPages}
+              disabled={page >= pagination.total_pages}
               onClick={() => setPage(page + 1)}
             >
               Next

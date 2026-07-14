@@ -77,7 +77,7 @@ export function MemberAddSheet({ open, onClose, projectId, onSubmit, isPending }
   const submit = () => {
     const members: MemberInput[] = Object.entries(selected).map(([userId, d]) => ({
       userId,
-      role: d.role,
+      project_role: d.role,
       allocation: d.allocation ? Number(d.allocation) : undefined,
     }));
     if (members.length === 0) return;
@@ -115,11 +115,11 @@ export function MemberAddSheet({ open, onClose, projectId, onSubmit, isPending }
                   <Avatar name={name} src={emp.avatar ?? undefined} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{name}</p>
-                    {(emp.designation || emp.department) && (
+                    {(emp.designation || emp.department?.name) && (
                       <p className="truncate text-xs text-foreground-muted">
                         {emp.designation}
-                        {emp.designation && emp.department ? " · " : ""}
-                        {emp.department}
+                        {emp.designation && emp.department?.name ? " · " : ""}
+                        {emp.department?.name}
                       </p>
                     )}
                   </div>
@@ -177,7 +177,7 @@ export function MemberEditSheet({ open, onClose, member, onSubmit, isPending }: 
 
   React.useEffect(() => {
     if (!open || !member) return;
-    setRole(member.role ?? roleOptions[0]?.value ?? "member");
+    setRole(member.project_role ?? roleOptions[0]?.value ?? "member");
     setAllocation(member.allocation != null ? String(member.allocation) : "");
   }, [open, member, roleOptions]);
 
@@ -208,7 +208,7 @@ export function MemberEditSheet({ open, onClose, member, onSubmit, isPending }: 
         </Button>
         <Button
           onClick={() =>
-            onSubmit({ role, allocation: allocation ? Number(allocation) : undefined })
+            onSubmit({ project_role: role, allocation: allocation ? Number(allocation) : undefined })
           }
           isLoading={isPending}
         >
@@ -221,9 +221,9 @@ export function MemberEditSheet({ open, onClose, member, onSubmit, isPending }: 
 
 export function memberName(m: ProjectMember | null | undefined): string {
   if (!m) return "";
-  return m.user?.full_name || m.user?.name || m.full_name || "Unknown";
+  return m.employee?.full_name || m.employee?.name || "Unknown";
 }
 
 export function memberAvatar(m: ProjectMember): string | undefined {
-  return m.user?.avatar ?? m.avatar ?? undefined;
+  return m.employee?.avatar ?? undefined;
 }

@@ -9,17 +9,21 @@ import type { EmployeeRef, Paginated, SalaryLineItem } from "@/types";
 /** A payroll row for a given period — one employee's slip summary. */
 export interface PayrollSlip {
   id: string;
+  /** Human-facing slip id — the key every `/salary/slips/:slipId` route uses. */
+  slip_id: string;
   employee: EmployeeRef;
   month: number | string;
   year: number;
   status: SalarySlipStatus;
-  net?: number;
+  net_amount?: number;
   basic_salary?: number;
 }
 
 /** Full slip detail (HR view) — breakdown line items + totals. */
 export interface PayrollSlipDetail {
   id: string;
+  /** Human-facing slip id — the key every `/salary/slips/:slipId` route uses. */
+  slip_id: string;
   employee: EmployeeRef;
   month: number | string;
   year: number;
@@ -27,10 +31,8 @@ export interface PayrollSlipDetail {
   basic_salary?: number;
   earnings?: SalaryLineItem[];
   deductions?: SalaryLineItem[];
-  tax?: number;
-  provident_fund?: number;
-  gross?: number;
-  net?: number;
+  gross_amount?: number;
+  net_amount?: number;
 }
 
 /** Result of a period-wide generate run. */
@@ -44,9 +46,7 @@ export interface PayrollGenerateResult {
 
 /** Result of a period-wide release run. */
 export interface PayrollReleaseResult {
-  month: number;
-  year: number;
-  total: number;
+  released: number;
   failed: number;
 }
 

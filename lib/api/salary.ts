@@ -11,14 +11,22 @@ export interface SalarySlipDownload {
 }
 
 export const salaryApi = {
-  /** Current salary breakdown, or `null` when nothing is configured yet. */
-  breakdown: () => api.get<SalaryBreakdownModel | null>("/salary/breakdown"),
+  /** Current salary breakdown, or `null` when nothing is configured yet.
+   *  Wire wraps it as `{ breakdown }`. */
+  breakdown: () =>
+    api
+      .get<{ breakdown: SalaryBreakdownModel | null }>("/salary/breakdown")
+      .then((r) => r.breakdown),
 
-  /** Salary revision history (initial / increment / promotion). */
-  revisions: () => api.get<SalaryRevisionModel[]>("/salary/revisions"),
+  /** Salary revision history (initial / increment / promotion). Wire wraps as `{ items }`. */
+  revisions: () =>
+    api
+      .get<{ items: SalaryRevisionModel[] }>("/salary/revisions")
+      .then((r) => r.items),
 
-  /** Generated + pending salary slips. */
-  slips: () => api.get<SalarySlipModel[]>("/salary/slips"),
+  /** Generated + pending salary slips. Wire wraps as `{ items }`. */
+  slips: () =>
+    api.get<{ items: SalarySlipModel[] }>("/salary/slips").then((r) => r.items),
 
   /** Signed download URL for a single slip. */
   download: (id: string) =>

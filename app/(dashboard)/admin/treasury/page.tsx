@@ -57,7 +57,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function TreasuryPage() {
   const router = useRouter();
-  const { overview, opening, setOpening, points } = useTreasury();
+  const { overview, setOpening, points } = useTreasury();
   const [editing, setEditing] = React.useState(false);
 
   const data = overview.data;
@@ -148,10 +148,10 @@ export default function TreasuryPage() {
         open={editing}
         onClose={() => setEditing(false)}
         defaults={{
-          opening_balance: opening.data?.opening_balance ?? data?.opening_balance,
-          opening_date: opening.data?.opening_date ?? data?.opening_date,
-          currency: opening.data?.currency ?? currency,
-          note: opening.data?.note ?? data?.note,
+          opening_balance: data?.opening_balance,
+          opening_date: data?.opening_date,
+          currency,
+          note: data?.note,
         }}
         isPending={setOpening.isPending}
         onSubmit={(body) => setOpening.mutate(body, { onSuccess: () => setEditing(false) })}

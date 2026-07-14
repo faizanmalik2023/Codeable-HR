@@ -6,36 +6,45 @@ import type { ExpenseCurrency } from "@/lib/enums";
 /* Local model interfaces (types/index.ts is off-limits here)          */
 /* ------------------------------------------------------------------ */
 
+/** A referenced project on an income entry / summary line. */
+export interface IncomeProjectRef {
+  id: string;
+  code?: string | null;
+  name: string;
+  client_name?: string | null;
+}
+
 /** A single project-income ledger entry. */
 export interface ProjectIncome {
   id: string;
   name: string;
   amount: number;
   project_id?: string | null;
-  project_name?: string | null;
+  /** Populated project reference on reads. */
+  project?: IncomeProjectRef | null;
   source?: string | null;
   currency: ExpenseCurrency | string;
   date?: string | null;
   description?: string | null;
-  attachment?: string | null;
+  attachment_path?: string | null;
   is_reversed?: boolean;
   reversed_at?: string | null;
 }
 
-/** Per-currency total in the summary breakdown. */
-export interface CurrencyTotal {
-  currency: ExpenseCurrency | string;
-  amount: number;
+/** One per-project total in the summary breakdown. */
+export interface ProjectSummaryLine {
+  project_id?: string | null;
+  project?: IncomeProjectRef | null;
+  total: number;
+  count: number;
 }
 
-/** `GET /admin/project-income/summary` — headline totals. */
+/** `GET /admin/project-income/summary` — `{ range, total_income, by_project }`. */
 export interface ProjectIncomeSummary {
-  /** Everything normalised to PKR. */
-  total_pkr: number;
-  /** Number of income records in range. */
-  count: number;
-  /** Original-currency breakdown (e.g. PKR + USD). */
-  totals?: CurrencyTotal[];
+  range?: { from: string | null; to: string | null };
+  /** Grand total (PKR) over the range. */
+  total_income: number;
+  by_project: ProjectSummaryLine[];
 }
 
 /* ------------------------------------------------------------------ */

@@ -27,7 +27,8 @@ export interface Department {
 export interface DepartmentCreateBody {
   name: string;
   description?: string;
-  cover_image?: string;
+  /** Department picture — createDepartmentSchema expects `image` (a hosted URL). */
+  image?: string;
 }
 
 export interface DepartmentUpdateBody {
@@ -41,7 +42,8 @@ export type DepartmentListResponse = Department[] | { items: Department[] };
 export const departmentsApi = {
   list: () => api.get<DepartmentListResponse>("/departments"),
 
-  get: (id: string) => api.get<Department>(`/departments/${id}`),
+  // NOTE: there is no `GET /departments/:id` on the backend — the detail view
+  // hydrates from the list-query cache (see use-department-detail.ts).
 
   create: (body: DepartmentCreateBody) => api.post<Department>("/departments", body),
 
@@ -55,14 +57,20 @@ export const departmentsApi = {
       `/departments/${id}/available-employees`
     ),
 
-  addMember: (id: string, employee_id: string) =>
-    api.post<void>(`/departments/${id}/members`, { employee_id }),
+  // addMembersSchema expects `employee_codes: string[]` (a batch of employee codes).
+  addMember: (id: string, employee_code: string) =>
+    api.post<Department>(`/departments/${id}/members`, {
+      employee_codes: [employee_code],
+    }),
 
   removeMember: (id: string, code: string) =>
-    api.delete<void>(`/departments/${id}/members/${code}`),
+    api.delete<Department>(`/departments/${id}/members/${code}`),
 
-  setManager: (id: string, manager_id: string) =>
-    api.patch<void>(`/departments/${id}/manager`, { manager_id }),
+  // updateManagerSchema expects `employee_codes: string[]` (empty clears all).
+  setManager: (id: string, employee_code: string) =>
+    api.patch<Department>(`/departments/${id}/manager`, {
+      employee_codes: [employee_code],
+    }),
 };
 
 /** Normalise a list/available response into a plain array. */

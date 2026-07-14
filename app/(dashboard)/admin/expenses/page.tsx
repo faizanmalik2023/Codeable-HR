@@ -84,7 +84,7 @@ export default function AdminExpensesPage() {
 
   const months = React.useMemo(() => recentMonths(), []);
   const categoryKeys = React.useMemo(
-    () => options.data?.expense_type ?? options.data?.category ?? [],
+    () => options.data?.categories ?? options.data?.types ?? [],
     [options.data],
   );
   const activeCount = activeFilterCount(filters);
@@ -146,7 +146,7 @@ export default function AdminExpensesPage() {
       key: "status",
       header: "Status",
       render: (r) => {
-        const meta = statusMeta(r.status);
+        const meta = statusMeta(r.entry_status);
         return <Badge variant={meta.tone}>{meta.label}</Badge>;
       },
     },
@@ -298,10 +298,10 @@ export default function AdminExpensesPage() {
       </Card>
 
       {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between text-sm text-foreground-muted">
           <span>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.current_page} of {pagination.total_pages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -315,7 +315,7 @@ export default function AdminExpensesPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= pagination.totalPages}
+              disabled={page >= pagination.total_pages}
               onClick={() => setPage(page + 1)}
             >
               Next

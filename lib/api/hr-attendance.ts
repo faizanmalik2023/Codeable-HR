@@ -1,12 +1,13 @@
 import { api } from "@/lib/api/client";
-import type { AttendanceMonthModel, Paginated } from "@/types";
+import type { AttendanceMonthModel, EmployeeRef, Paginated } from "@/types";
 
-/** Row in the HR attendance employee directory. */
+/** Row in the HR attendance employee directory. The person is nested under
+ *  `employee` (canonical EmployeeRef); the health stats sit alongside it. */
 export interface HrAttendanceEmployee {
-  employee_code: string;
-  full_name: string;
-  department?: string;
-  avatar?: string | null;
+  employee: EmployeeRef;
+  attendance_percentage?: number;
+  avg_daily_hours?: number;
+  health?: string;
 }
 
 /** HR-facing attendance endpoints — browse employees, view a month's logs. */

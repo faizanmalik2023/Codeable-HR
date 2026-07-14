@@ -54,29 +54,47 @@ export interface TreasuryOpening {
   note?: string | null;
 }
 
-/** A single monthly cash-flow data point from `/admin/treasury/analytics`. */
+/** A single monthly cash-flow data point (an item of `analytics.monthly`). */
 export interface CashFlowPoint {
   month: string;
   income: number;
   expenses: number;
-  net: number;
+  net_change: number;
+  running_balance: number;
+}
+
+/** `GET /admin/treasury/analytics` — nested `{ range, currency, totals, monthly }`. */
+export interface TreasuryAnalytics {
+  range?: { from: string; to: string };
+  currency?: ExpenseCurrency;
+  totals?: Record<string, number>;
+  monthly: CashFlowPoint[];
 }
 
 /** `GET /admin/finance/report` — a P&L + cash-flow report for a date range. */
 export interface FinanceReport {
-  plIncome: number;
-  plExpenses: number;
-  plNetProfit: number;
-  plPayroll: number;
-  plEquityDistributed: number;
-  plRetained: number;
-  loanDisbursed: number;
-  loanRepaid: number;
-  adjustmentsNet: number;
-  netChange: number;
-  currentBalance: number;
-  loansOutstanding: number;
-  generatedAt: string;
+  period?: { from: string; to: string };
+  currency?: ExpenseCurrency;
+  profit_and_loss: {
+    income: number;
+    expenses: number;
+    net_profit: number;
+    equity_distributed: number;
+    payroll: number;
+    retained: number;
+  };
+  cash_flow: {
+    loan_disbursed: number;
+    loan_repaid: number;
+    adjustments_net: number;
+    net_change: number;
+    monthly?: CashFlowPoint[];
+  };
+  treasury: {
+    current_balance: number;
+    loans_outstanding: number;
+  };
+  generated_at: string;
 }
 
 /** An immutable finance audit-trail entry. */
@@ -86,7 +104,7 @@ export interface AuditEntry {
   entity_type: string;
   entity_id: string;
   actor: string;
-  timestamp: string;
+  created_at: string;
 }
 
 /** A closed accounting period. */
@@ -147,13 +165,11 @@ export interface ClosePeriodBody {
 export const adminTreasuryApi = {
   overview: () => api.get<TreasuryOverview>("/admin/treasury"),
 
-  opening: () => api.get<TreasuryOpening>("/admin/treasury/opening"),
-
   setOpening: (body: SetOpeningBody) =>
     api.put<TreasuryOpening>("/admin/treasury/opening", body),
 
   analytics: (params: DateRangeParams) =>
-    api.get<CashFlowPoint[]>("/admin/treasury/analytics", {
+    api.get<TreasuryAnalytics>("/admin/treasury/analytics", {
       from: params.from,
       to: params.to,
     }),

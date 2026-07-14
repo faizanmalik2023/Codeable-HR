@@ -121,6 +121,15 @@ export interface Department {
 /* Request bodies                                                      */
 /* ------------------------------------------------------------------ */
 
+/** Perk entry accepted by createEmployeeSchema (validators/hr/employee.js). */
+export interface CreateEmployeePerk {
+  /** One of PERK_KEYS: medical_insurance | provident_fund | fuel_allowance | meal_allowance | phone_allowance */
+  key: PerkType | string;
+  enabled?: boolean;
+  amount?: number | null;
+  percentage?: number | null;
+}
+
 export interface CreateEmployeeBody {
   full_name: string;
   email: string;
@@ -129,7 +138,6 @@ export interface CreateEmployeeBody {
   dob: string;
   designation_id: string;
   department_id: string;
-  manager_id?: string | null;
   role: UserRole | string;
   employment_type: EmploymentType | string;
   joined_at?: string | null;
@@ -139,8 +147,16 @@ export interface CreateEmployeeBody {
   cnic_front_image?: string | null;
   cnic_back_image?: string | null;
   contract_document?: string | null;
-  salary_components: SalaryComponent[];
-  perks: Perk[];
+  /* Named salary fields — folded into salary components server-side. */
+  basic_salary?: number;
+  house_rent?: number;
+  medical?: number;
+  transport?: number;
+  utility?: number;
+  tax?: number;
+  provident_fund?: number;
+  insurance?: number;
+  perks: CreateEmployeePerk[];
 }
 
 export interface UpdateEmployeeBody {
@@ -186,17 +202,24 @@ export const employeesApi = {
       search: params?.search,
     }),
 
-  get: (id: string) => api.get<EmployeeInfo>(`/employees/${id}`),
+  get: (id: string) =>
+    api
+      .get<{ employee: EmployeeInfo }>(`/employees/${id}`)
+      .then((r) => r.employee),
 
-  designations: () => api.get<Designation[]>("/employees/designations"),
+  designations: () =>
+    api
+      .get<{ designations: Designation[] }>("/employees/designations")
+      .then((r) => r.designations),
 
-  departments: () => api.get<Department[]>("/departments"),
+  departments: () =>
+    api.get<{ items: Department[] }>("/departments").then((r) => r.items),
 
   create: (body: CreateEmployeeBody) =>
     api.post<{ employee_code: string }>("/employees", body),
 
   update: (id: string, body: UpdateEmployeeBody) =>
-    api.patch<EmployeeInfo>(`/employees/${id}`, body),
+    api.put<EmployeeInfo>(`/employees/${id}`, body),
 
   promote: (id: string, body: PromoteBody) =>
     api.post<EmployeeInfo>(`/employees/${id}/promote`, body),

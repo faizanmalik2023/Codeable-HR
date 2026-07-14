@@ -62,7 +62,8 @@ export default function DepartmentDetailPage() {
   };
 
   const openManager = () => {
-    setManagerDraft(department ? primaryManager(department)?.id ?? "" : "");
+    // The manager endpoint keys on employee_code, so the picker carries codes.
+    setManagerDraft(department ? primaryManager(department)?.employee_code ?? "" : "");
     setManagerOpen(true);
     available.refetch();
   };
@@ -75,7 +76,8 @@ export default function DepartmentDetailPage() {
   const availableOptions = React.useMemo(
     () =>
       (available.data ?? []).map((e) => ({
-        value: e.id,
+        // value = employee_code (what the add/manager endpoints expect).
+        value: e.employee_code ?? e.id,
         label: e.full_name,
         description: e.designation ?? e.role,
       })),
@@ -312,8 +314,11 @@ export default function DepartmentDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => addMember.mutate(emp.id)}
-                    isLoading={addMember.isPending && addMember.variables === emp.id}
+                    onClick={() => addMember.mutate(emp.employee_code ?? emp.id)}
+                    isLoading={
+                      addMember.isPending &&
+                      addMember.variables === (emp.employee_code ?? emp.id)
+                    }
                     disabled={addMember.isPending}
                   >
                     <UserPlus className="h-4 w-4" /> Add

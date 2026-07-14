@@ -7,7 +7,7 @@ import { hrLeavesApi, type LeaveDecisionBody } from "@/lib/api/hr-leaves";
 import { qk } from "@/lib/query/keys";
 import { statusParam } from "@/lib/enums";
 import { ApiRequestError } from "@/lib/api/client";
-import type { LeaveModel } from "@/types";
+import type { OnLeaveTodayModel } from "@/types";
 
 /**
  * HR leave-requests approval queue — filter tab + pagination, the
@@ -43,7 +43,9 @@ export function useLeaveRequests() {
   });
 
   const raw = onLeaveTodayQuery.data;
-  const onLeaveToday: LeaveModel[] = Array.isArray(raw) ? raw : raw?.items ?? [];
+  const onLeaveToday: OnLeaveTodayModel[] = Array.isArray(raw)
+    ? raw
+    : raw?.items ?? [];
 
   return {
     status,

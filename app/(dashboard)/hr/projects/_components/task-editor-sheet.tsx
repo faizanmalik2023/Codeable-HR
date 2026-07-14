@@ -12,12 +12,13 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toWireDate } from "@/lib/format";
-import type {
-  ProjectMember,
-  ProjectMilestone,
-  ProjectTask,
-  ProjectTaskStatus,
-  TaskBody,
+import {
+  memberUserId,
+  type ProjectMember,
+  type ProjectMilestone,
+  type ProjectTask,
+  type ProjectTaskStatus,
+  type TaskBody,
 } from "@/lib/api/projects-mgmt";
 import { ProjectTaskStatusEnum } from "./project-meta";
 import { memberName } from "./member-sheet";
@@ -65,7 +66,7 @@ export function TaskEditorSheet({
   const assigneeOptions = React.useMemo(
     () => [
       { value: "", label: "Unassigned" },
-      ...members.map((m) => ({ value: m.userId, label: memberName(m) })),
+      ...members.map((m) => ({ value: memberUserId(m), label: memberName(m) })),
     ],
     [members]
   );
@@ -113,7 +114,7 @@ export function TaskEditorSheet({
       title: v.title.trim(),
       description: v.description?.trim() || undefined,
       status: v.status as ProjectTaskStatus,
-      assignee_id: v.assignee_id || null,
+      assignee_user_id: v.assignee_id || null,
       milestone_id: v.milestone_id || null,
       due_date: v.due_date ? toWireDate(v.due_date) : null,
     })

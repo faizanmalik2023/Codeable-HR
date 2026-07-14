@@ -6,25 +6,13 @@ import { Avatar } from "@/components/ui/avatar";
 import { StatusCard } from "@/components/shared/status-card";
 import { QueryState } from "@/components/shared/query-state";
 import { SkeletonStats } from "@/components/ui/skeleton";
-import type { ProjectAnalytics, ProjectSummary } from "@/lib/api/projects-mgmt";
+import type { ProjectSummary } from "@/lib/api/projects-mgmt";
 import type { useProjectDetail } from "../../[id]/use-project-detail";
 import { ProgressBar } from "../project-meta";
 
 interface AnalyticsTabProps {
   summary: ProjectSummary;
   pd: ReturnType<typeof useProjectDetail>;
-}
-
-/** Reads a numeric metric from either the flat field or the nested `stats` map. */
-function metric(a: ProjectAnalytics | undefined, keys: string[], fallback = 0): number {
-  if (!a) return fallback;
-  for (const k of keys) {
-    const flat = (a as Record<string, unknown>)[k];
-    if (typeof flat === "number") return flat;
-    const nested = a.stats?.[k];
-    if (typeof nested === "number") return nested;
-  }
-  return fallback;
 }
 
 export function AnalyticsTab({ summary, pd }: AnalyticsTabProps) {
@@ -41,12 +29,14 @@ export function AnalyticsTab({ summary, pd }: AnalyticsTabProps) {
       isEmpty={() => false}
     >
       {(a) => {
-        const total = metric(a, ["total_tasks"], summary.open_task_count ?? 0);
-        const done = metric(a, ["completed_tasks"]);
-        const open = metric(a, ["open_tasks"], summary.open_task_count ?? 0);
-        const hours = metric(a, ["total_hours"]);
-        const memberCount = metric(a, ["member_count"], summary.member_count ?? 0);
-        const memberRows = a?.members ?? [];
+        // formatAnalytics nests the headline metrics under `summary`.
+        const s = a?.summary;
+        const total = s?.total_tasks ?? summary.open_task_count ?? 0;
+        const done = s?.completed_tasks ?? 0;
+        const open = s?.open_tasks ?? summary.open_task_count ?? 0;
+        const hours = s?.total_hours ?? 0;
+        const memberCount = s?.member_count ?? summary.member_count ?? 0;
+        const memberRows = a?.hours_by_member ?? [];
         const maxHours = Math.max(1, ...memberRows.map((m) => m.hours ?? 0));
 
         return (
@@ -90,16 +80,16 @@ export function AnalyticsTab({ summary, pd }: AnalyticsTabProps) {
                 ) : (
                   <div className="space-y-4">
                     {memberRows.map((m, i) => {
-                      const name = m.user?.full_name || m.user?.name || m.full_name || "Member";
+                      const name = m.employee?.full_name || m.employee?.name || "Member";
                       const h = m.hours ?? 0;
                       return (
-                        <div key={m.user?.id ?? i} className="flex items-center gap-3">
-                          <Avatar name={name} src={m.user?.avatar ?? undefined} size="sm" />
+                        <div key={m.employee?.id ?? i} className="flex items-center gap-3">
+                          <Avatar name={name} src={m.employee?.avatar ?? undefined} size="sm" />
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 flex items-center justify-between text-sm">
                               <span className="truncate font-medium text-foreground">{name}</span>
                               <span className="shrink-0 text-xs text-foreground-muted">
-                                {h}h{typeof m.task_count === "number" ? ` · ${m.task_count} tasks` : ""}
+                                {h}h{typeof m.eod_count === "number" ? ` · ${m.eod_count} EODs` : ""}
                               </span>
                             </div>
                             <div className="h-2 overflow-hidden rounded-full bg-secondary">

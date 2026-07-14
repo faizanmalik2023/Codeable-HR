@@ -107,10 +107,10 @@ export default function NotificationsPage() {
         )}
       </QueryState>
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between text-sm text-foreground-muted">
           <span>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.current_page} of {pagination.total_pages}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
@@ -119,7 +119,7 @@ export default function NotificationsPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= pagination.totalPages}
+              disabled={page >= pagination.total_pages}
               onClick={() => setPage(page + 1)}
             >
               Next

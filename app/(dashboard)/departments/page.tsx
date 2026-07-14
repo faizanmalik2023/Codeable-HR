@@ -63,18 +63,18 @@ export default function DepartmentsPage() {
   };
 
   const onSubmit = handleSubmit(async (values) => {
-    let cover_image: string | undefined;
+    let image: string | undefined;
     if (coverFile) {
       try {
         setUploading(true);
         const { url } = await uploadFile(coverFile, "departments");
-        cover_image = url;
+        image = url;
       } finally {
         setUploading(false);
       }
     }
     create.mutate(
-      { name: values.name.trim(), description: values.description?.trim() || undefined, cover_image },
+      { name: values.name.trim(), description: values.description?.trim() || undefined, image },
       { onSuccess: closeCreate }
     );
   });

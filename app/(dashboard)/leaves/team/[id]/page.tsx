@@ -46,7 +46,7 @@ export default function TeamMemberLeavesPage() {
   const [rejectReason, setRejectReason] = React.useState(DEFAULT_REJECTION);
 
   const items = query.data?.items ?? [];
-  const member = items.find((i) => i.employee?.full_name)?.employee;
+  const member = query.data?.employee;
   const filtered =
     statusFilter === "all" ? items : items.filter((i) => i.status === statusFilter);
 

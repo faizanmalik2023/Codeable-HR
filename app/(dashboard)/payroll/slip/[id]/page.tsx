@@ -68,7 +68,7 @@ export default function PayslipDetailPage() {
       {/* Employee header */}
       <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
         <div className="flex items-center gap-3">
-          <Avatar src={slip.employee?.avatar} name={slip.employee?.full_name} size="lg" />
+          <Avatar src={slip.employee?.avatar ?? undefined} name={slip.employee?.full_name} size="lg" />
           <div>
             <p className="font-semibold text-foreground">{slip.employee?.full_name ?? "—"}</p>
             <p className="text-sm text-foreground-muted">
@@ -95,24 +95,16 @@ export default function PayslipDetailPage() {
           )}
 
           {(slip.earnings ?? []).map((e, i) => (
-            <LineRow key={`e-${i}`} label={e.label} amount={e.amount} sign="+" tone="success" />
+            <LineRow key={`e-${i}`} label={e.name} amount={e.amount} sign="+" tone="success" />
           ))}
 
           {(slip.deductions ?? []).map((d, i) => (
-            <LineRow key={`d-${i}`} label={d.label} amount={d.amount} sign="-" tone="destructive" />
+            <LineRow key={`d-${i}`} label={d.name} amount={d.amount} sign="-" tone="destructive" />
           ))}
-
-          {typeof slip.tax === "number" && slip.tax > 0 && (
-            <LineRow label="Tax" amount={slip.tax} sign="-" tone="destructive" />
-          )}
-
-          {typeof slip.provident_fund === "number" && slip.provident_fund > 0 && (
-            <LineRow label="Provident Fund" amount={slip.provident_fund} sign="-" tone="destructive" />
-          )}
 
           <div className="flex items-center justify-between pt-4">
             <span className="text-base font-semibold text-foreground">Net Pay</span>
-            <span className="text-xl font-bold text-primary">{formatMoney(slip.net)}</span>
+            <span className="text-xl font-bold text-primary">{formatMoney(slip.net_amount)}</span>
           </div>
         </div>
       </Card>
@@ -203,7 +195,7 @@ function LineRow({
 /* Amend sheet                                                         */
 /* ------------------------------------------------------------------ */
 const lineItemSchema = z.object({
-  label: z.string().min(1, "Required"),
+  name: z.string().min(1, "Required"),
   amount: z.number({ error: "Enter an amount" }).min(0, "Must be ≥ 0"),
 });
 
@@ -228,8 +220,8 @@ function AmendSheet({
   isSaving: boolean;
   onSave: (body: {
     basic_salary: number;
-    earnings: { label: string; amount: number }[];
-    deductions: { label: string; amount: number }[];
+    earnings: { name: string; amount: number }[];
+    deductions: { name: string; amount: number }[];
   }) => void;
 }) {
   const {
@@ -285,7 +277,7 @@ function AmendSheet({
           register={register}
           name="earnings"
           errors={errors.earnings}
-          onAdd={() => earnings.append({ label: "", amount: 0 })}
+          onAdd={() => earnings.append({ name: "", amount: 0 })}
           onRemove={(i) => earnings.remove(i)}
         />
 
@@ -296,7 +288,7 @@ function AmendSheet({
           register={register}
           name="deductions"
           errors={errors.deductions}
-          onAdd={() => deductions.append({ label: "", amount: 0 })}
+          onAdd={() => deductions.append({ name: "", amount: 0 })}
           onRemove={(i) => deductions.remove(i)}
         />
       </div>
@@ -350,8 +342,8 @@ function LineItemSection({
               <div className="flex-1">
                 <Input
                   placeholder="Label"
-                  {...register(`${name}.${i}.label`)}
-                  error={errors?.[i]?.label?.message}
+                  {...register(`${name}.${i}.name`)}
+                  error={errors?.[i]?.name?.message}
                 />
               </div>
               <div className="w-32">

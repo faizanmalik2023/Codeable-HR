@@ -18,7 +18,7 @@ export const eodsApi = {
       limit: params.limit ?? 10,
     }),
 
-  get: (id: string) => api.get<EodReportModel>(`/eods/${id}`),
+  get: (id: string) => api.get<{ eod: EodReportModel }>(`/eods/${id}`).then((r) => r.eod),
 
   saveDraft: (body: EodSubmitBody) => api.post<EodReportModel>("/eods", body),
 
@@ -27,8 +27,6 @@ export const eodsApi = {
   remove: (id: string) => api.delete<void>(`/eods/${id}`),
 
   team: () => api.get<{ items: TeamMemberModel[] }>("/eods/team"),
-
-  isManager: () => api.get<{ is_manager: boolean }>("/eods/team/is-manager"),
 
   teamMember: (employeeId: string) =>
     api.get<Paginated<EodReportModel>>(`/eods/team/${employeeId}`),

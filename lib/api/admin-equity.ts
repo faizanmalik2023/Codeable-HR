@@ -107,12 +107,16 @@ export interface AllocationResponse {
   summary: AllocationSummary;
 }
 
-/** A pooled fund balance held for a beneficiary. */
+/** A pooled fund balance held for a non-person beneficiary (charity/ESOP/other). */
 export interface Fund {
-  beneficiary: string;
+  beneficiary_id?: string | null;
+  name: string;
+  kind: BeneficiaryKind;
+  collected: number;
+  committed: number;
+  /** Carried-forward pool balance (collected − committed, rolling). */
   balance: number;
-  currency: ExpenseCurrency;
-  last_update?: string | null;
+  deficit?: boolean;
 }
 
 export interface FundsResponse {
@@ -121,12 +125,16 @@ export interface FundsResponse {
 
 /** A single per-beneficiary line inside a distribution run. */
 export interface DistributionAllocationLine {
-  beneficiary_id?: string;
-  beneficiary_name: string;
+  beneficiary_id?: string | null;
+  name: string;
   kind?: BeneficiaryKind;
   share_percent: number;
   payout_rate: number;
-  amount: number;
+  receivable?: number;
+  disbursed: number;
+  retained?: number;
+  committed?: number;
+  remaining?: number;
 }
 
 /**
@@ -140,14 +148,16 @@ export interface EquityDistribution {
   net_profit: number;
   revenue?: number | null;
   expenses_total?: number | null;
+  payroll?: number | null;
   currency: ExpenseCurrency;
   status: DistributionStatus;
-  /** Net profit available to distribute after any retention. */
-  total_to_distribute: number;
-  /** Sum of the allocation lines. */
-  allocated_total: number;
-  /** Portion retained (not distributed). */
-  retained_total: number;
+  total_receivable?: number;
+  /** Total actually disbursed to beneficiaries (sum of the allocation lines). */
+  total_disbursed: number;
+  allocated_retained?: number;
+  /** Portion the company keeps (net profit not paid out). */
+  company_retained: number;
+  total_committed?: number;
   allocations: DistributionAllocationLine[];
   note?: string | null;
   created_at?: string | null;

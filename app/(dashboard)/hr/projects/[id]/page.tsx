@@ -50,8 +50,8 @@ export default function ProjectDetailPage() {
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
+  // `GET /projects/:id` is FLAT — the detail IS the summary (plus members/milestones).
   const detail = pd.detail.data;
-  const summary = detail?.summary;
 
   if (pd.detail.isLoading && !detail) {
     return (
@@ -63,7 +63,7 @@ export default function ProjectDetailPage() {
     );
   }
 
-  if (pd.detail.isError || !summary) {
+  if (pd.detail.isError || !detail) {
     return (
       <div className="space-y-6">
         <PageHeader title="Project" back />
@@ -71,6 +71,8 @@ export default function ProjectDetailPage() {
       </div>
     );
   }
+
+  const summary = detail;
 
   return (
     <div className="space-y-6">

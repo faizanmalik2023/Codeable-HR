@@ -52,12 +52,12 @@ export function DistributionSummary({
 
   const columns: DataTableColumn<DistributionAllocationLine>[] = [
     {
-      key: "beneficiary_name",
+      key: "name",
       header: "Beneficiary",
       render: (l) => (
         <div className="flex items-center gap-2">
           <span className="font-medium text-foreground">
-            {l.beneficiary_name}
+            {l.name}
           </span>
           {l.kind && (
             <Badge variant={BENEFICIARY_KIND_TONE[l.kind] ?? "muted"}>
@@ -80,12 +80,12 @@ export function DistributionSummary({
       render: (l) => <span className="text-foreground-muted">{pct(l.payout_rate)}</span>,
     },
     {
-      key: "amount",
+      key: "disbursed",
       header: "Amount",
       align: "right",
       render: (l) => (
         <span className="font-medium text-foreground">
-          {formatMoney(l.amount, currency)}
+          {formatMoney(l.disbursed, currency)}
         </span>
       ),
     },
@@ -97,16 +97,16 @@ export function DistributionSummary({
         <Stat label="Net profit" value={formatMoney(distribution.net_profit, currency)} />
         <Stat
           label="To distribute"
-          value={formatMoney(distribution.total_to_distribute, currency)}
+          value={formatMoney(distribution.net_profit, currency)}
         />
         <Stat
           label="Allocated"
-          value={formatMoney(distribution.allocated_total, currency)}
+          value={formatMoney(distribution.total_disbursed, currency)}
           emphasis
         />
         <Stat
           label="Retained"
-          value={formatMoney(distribution.retained_total, currency)}
+          value={formatMoney(distribution.company_retained, currency)}
         />
       </div>
 
@@ -115,7 +115,7 @@ export function DistributionSummary({
         <DataTable
           columns={columns}
           data={distribution.allocations ?? []}
-          rowKey={(l) => l.beneficiary_id ?? l.beneficiary_name}
+          rowKey={(l) => l.beneficiary_id ?? l.name}
           empty="No allocation lines"
         />
       </Card>

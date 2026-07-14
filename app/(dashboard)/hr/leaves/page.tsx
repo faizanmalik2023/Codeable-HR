@@ -14,9 +14,10 @@ import { DataTable, type DataTableColumn } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { LeaveStatusEnum, LEAVE_FILTERS, LEAVE_TYPE_LABELS } from "@/lib/enums";
-import { formatDateRange } from "@/lib/format";
+import { formatDateRange, formatOrdinalDate } from "@/lib/format";
 import { useLeaveRequests } from "./use-leave-requests";
 import { LeaveDetailsDialog } from "../../leaves/leave-details-dialog";
+import type { HrLeaveRequestModel } from "@/lib/api/hr-leaves";
 import type { LeaveModel } from "@/types";
 
 const DEFAULT_REJECTION = "Leave request rejected by HR";
@@ -43,7 +44,7 @@ export default function HrLeaveRequestsPage() {
     decide,
   } = useLeaveRequests();
 
-  const [selected, setSelected] = React.useState<LeaveModel | null>(null);
+  const [selected, setSelected] = React.useState<HrLeaveRequestModel | null>(null);
   const [confirmApprove, setConfirmApprove] = React.useState(false);
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState(DEFAULT_REJECTION);
@@ -87,7 +88,7 @@ export default function HrLeaveRequestsPage() {
     );
   };
 
-  const columns: DataTableColumn<LeaveModel>[] = [
+  const columns: DataTableColumn<HrLeaveRequestModel>[] = [
     {
       key: "employee",
       header: "Employee",
@@ -98,19 +99,23 @@ export default function HrLeaveRequestsPage() {
             <p className="truncate font-medium text-foreground">
               {r.employee?.full_name ?? "—"}
             </p>
-            {r.employee?.department && (
-              <p className="truncate text-xs text-foreground-muted">{r.employee.department}</p>
+            {r.employee?.department?.name && (
+              <p className="truncate text-xs text-foreground-muted">
+                {r.employee.department.name}
+              </p>
             )}
           </div>
         </div>
       ),
     },
-    { key: "type", header: "Type", render: (r) => typeLabel(r) },
+    { key: "type", header: "Type", render: (r) => typeLabel(r.leave) },
     {
       key: "dates",
       header: "Date range",
       render: (r) => (
-        <span className="text-foreground-muted">{formatDateRange(r.date_from, r.date_to)}</span>
+        <span className="text-foreground-muted">
+          {formatDateRange(r.leave.date_from, r.leave.date_to)}
+        </span>
       ),
     },
     {
@@ -118,15 +123,17 @@ export default function HrLeaveRequestsPage() {
       header: "Days",
       align: "right",
       render: (r) =>
-        typeof r.total_days === "number"
-          ? `${r.total_days} ${r.total_days === 1 ? "day" : "days"}`
+        typeof r.leave.total_days === "number"
+          ? `${r.leave.total_days} ${r.leave.total_days === 1 ? "day" : "days"}`
           : "—",
     },
     {
       key: "status",
       header: "Status",
       render: (r) => (
-        <Badge variant={LeaveStatusEnum.tone(r.status)}>{LeaveStatusEnum.label(r.status)}</Badge>
+        <Badge variant={LeaveStatusEnum.tone(r.leave.status)}>
+          {LeaveStatusEnum.label(r.leave.status)}
+        </Badge>
       ),
     },
   ];
@@ -155,7 +162,7 @@ export default function HrLeaveRequestsPage() {
           <div className="flex gap-3 overflow-x-auto pb-1">
             {onLeaveToday.map((leave) => (
               <div
-                key={leave.id}
+                key={leave.employee?.id}
                 className="flex w-56 shrink-0 items-center gap-3 rounded-[var(--radius-lg)] border border-border bg-secondary/30 p-3"
               >
                 <Avatar
@@ -168,7 +175,10 @@ export default function HrLeaveRequestsPage() {
                     {leave.employee?.full_name ?? "—"}
                   </p>
                   <p className="truncate text-xs text-foreground-muted">
-                    {typeLabel(leave)} · {formatDateRange(leave.date_from, leave.date_to)}
+                    {leave.leave_type}
+                    {leave.return_date
+                      ? ` · Back ${formatOrdinalDate(leave.return_date)}`
+                      : ""}
                   </p>
                 </div>
               </div>
@@ -201,10 +211,10 @@ export default function HrLeaveRequestsPage() {
         />
       </Card>
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between text-sm text-foreground-muted">
           <span>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.current_page} of {pagination.total_pages}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
@@ -213,7 +223,7 @@ export default function HrLeaveRequestsPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= pagination.totalPages}
+              disabled={page >= pagination.total_pages}
               onClick={() => setPage(page + 1)}
             >
               Next
@@ -224,12 +234,12 @@ export default function HrLeaveRequestsPage() {
 
       {/* Detail drawer — approve/reject only when pending */}
       <LeaveDetailsDialog
-        leave={selected}
+        leave={selected ? { ...selected.leave, employee: selected.employee } : null}
         open={!!selected}
         onClose={closeDialog}
         showEmployee
         footer={
-          selected?.status === "pending" ? (
+          selected?.leave.status === "pending" ? (
             <>
               <Button
                 variant="destructive"

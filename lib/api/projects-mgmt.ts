@@ -43,15 +43,21 @@ export interface ProjectSummary {
   completed_milestone_count?: number;
 }
 
+/** `formatMember` wire shape: employee nested, `project_role`, membership `id`. */
 export interface ProjectMember {
-  userId: string;
-  user?: EmployeeRef | null;
-  full_name?: string;
-  avatar?: string | null;
-  designation?: string;
-  role: string;
+  /** Membership subdoc id (NOT the user id). */
+  id?: string;
+  employee?: EmployeeRef | null;
+  project_role?: string;
   allocation?: number | null;
+  hours_logged?: number;
+  eod_count?: number;
+  last_eod_at?: string | null;
+  joined_at?: string | null;
 }
+
+/** The employee/user id behind a project member (used for member sub-routes). */
+export const memberUserId = (m: ProjectMember): string => m.employee?.id ?? "";
 
 export interface ProjectMilestone {
   id: string;
@@ -81,8 +87,11 @@ export interface ProjectDocument {
   created_at?: string;
 }
 
-export interface ProjectDetail {
-  summary: ProjectSummary;
+/**
+ * `GET /projects/:id` returns a FLAT detail — the summary fields spread at the
+ * top level, plus `members` and `milestones` (no `.summary` wrapper).
+ */
+export interface ProjectDetail extends ProjectSummary {
   members: ProjectMember[];
   milestones: ProjectMilestone[];
 }
@@ -92,20 +101,41 @@ export interface ProjectEodEntry {
   date: string;
   summary: string;
   hours?: number;
-  member?: EmployeeRef | null;
+  /** `formatEod` emits the reporter as `employee` (EmployeeRef). */
+  employee?: EmployeeRef | null;
+}
+
+/** `formatAnalytics` nests the headline metrics under `summary`. */
+export interface ProjectAnalyticsSummary {
+  total_hours?: number;
+  member_count?: number;
+  eod_count?: number;
+  active_days?: number;
+  avg_hours_per_active_day?: number;
+  open_tasks?: number;
+  completed_tasks?: number;
+  total_tasks?: number;
+  milestones_completed?: number;
+  milestones_total?: number;
+  progress?: number;
+  days_remaining?: number | null;
+  is_overdue?: boolean;
+}
+
+export interface HoursByMemberRow {
+  employee?: EmployeeRef | null;
+  hours?: number;
+  eod_count?: number;
+  percentage?: number;
 }
 
 export interface ProjectAnalytics {
-  stats?: Record<string, number>;
-  total_tasks?: number;
-  completed_tasks?: number;
-  open_tasks?: number;
-  total_hours?: number;
-  member_count?: number;
-  milestone_count?: number;
-  completed_milestone_count?: number;
-  members?: { user?: EmployeeRef | null; full_name?: string; hours?: number; task_count?: number; allocation?: number }[];
-  timeline?: { label: string; value: number }[];
+  range?: { from: string; to: string; preset: string };
+  summary?: ProjectAnalyticsSummary;
+  hours_by_member?: HoursByMemberRow[];
+  hours_by_week?: { week_start: string; label: string; hours: number }[];
+  eod_activity?: { date: string; count: number; hours: number }[];
+  status_breakdown?: Record<string, number>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -125,12 +155,14 @@ export interface ProjectBody {
 
 export interface MemberInput {
   userId: string;
-  role: string;
+  /** addMembersSchema key is `project_role` (→ projectRole). */
+  project_role: string;
   allocation?: number;
 }
 
 export interface MemberUpdateBody {
-  role?: string;
+  /** updateMemberSchema key is `project_role` (→ projectRole). */
+  project_role?: string;
   allocation?: number;
 }
 
@@ -138,7 +170,8 @@ export interface TaskBody {
   title: string;
   description?: string;
   status?: ProjectTaskStatus;
-  assignee_id?: string | null;
+  /** create/updateTaskSchema key is `assignee_user_id` (→ assigneeUserId). */
+  assignee_user_id?: string | null;
   milestone_id?: string | null;
   due_date?: string | null;
 }
@@ -216,7 +249,8 @@ export const projectsMgmtApi = {
     api.get<EmployeeRef[]>(`/projects/${id}/available-employees`),
 
   /* tasks */
-  tasks: (id: string) => api.get<ProjectTask[]>(`/projects/${id}/tasks`),
+  tasks: (id: string) =>
+    api.get<{ items: ProjectTask[] }>(`/projects/${id}/tasks`).then((r) => r.items),
   createTask: (id: string, body: TaskBody) =>
     api.post<ProjectTask>(`/projects/${id}/tasks`, body),
   updateTask: (id: string, taskId: string, body: Partial<TaskBody>) =>
@@ -225,7 +259,10 @@ export const projectsMgmtApi = {
     api.delete<void>(`/projects/${id}/tasks/${taskId}`),
 
   /* milestones */
-  milestones: (id: string) => api.get<ProjectMilestone[]>(`/projects/${id}/milestones`),
+  milestones: (id: string) =>
+    api
+      .get<{ items: ProjectMilestone[] }>(`/projects/${id}/milestones`)
+      .then((r) => r.items),
   createMilestone: (id: string, body: MilestoneBody) =>
     api.post<ProjectMilestone>(`/projects/${id}/milestones`, body),
   updateMilestone: (id: string, milestoneId: string, body: Partial<MilestoneBody>) =>
@@ -234,7 +271,10 @@ export const projectsMgmtApi = {
     api.delete<void>(`/projects/${id}/milestones/${milestoneId}`),
 
   /* documents */
-  documents: (id: string) => api.get<ProjectDocument[]>(`/projects/${id}/documents`),
+  documents: (id: string) =>
+    api
+      .get<{ items: ProjectDocument[] }>(`/projects/${id}/documents`)
+      .then((r) => r.items),
   addDocument: (id: string, body: DocumentBody) =>
     api.post<ProjectDocument>(`/projects/${id}/documents`, body),
   removeDocument: (id: string, docId: string) =>

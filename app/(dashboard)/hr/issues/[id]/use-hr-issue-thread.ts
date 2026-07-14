@@ -40,7 +40,7 @@ export function useHrIssueThread(id: string) {
           id: tempId,
           sender: "hr",
           content: message,
-          created_at: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
           delivery: "sending",
         },
       ]);

@@ -38,7 +38,7 @@ const MANAGE_LINKS: { label: string; href: string; icon: typeof Users }[] = [
 
 export default function EquityOverviewPage() {
   const router = useRouter();
-  const { query, summary } = useEquity();
+  const { query, summary, beneficiaries } = useEquity();
 
   const columns: DataTableColumn<AllocationRow>[] = [
     {
@@ -126,7 +126,7 @@ export default function EquityOverviewPage() {
             />
             <StatusCard
               title="Active beneficiaries"
-              value={String(summary.active_beneficiaries ?? 0)}
+              value={String(beneficiaries.length)}
               subtitle="Currently receiving distributions"
               icon={Users}
               variant="accent"

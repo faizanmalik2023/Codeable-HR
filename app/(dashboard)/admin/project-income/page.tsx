@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Coins, TrendingUp, Hash } from "lucide-react";
+import { Plus, Search, Coins, Hash } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,20 +18,14 @@ import type { ExpenseCurrency } from "@/lib/enums";
 import type { ProjectIncome } from "@/lib/api/admin-income";
 import { useProjectIncome } from "./use-project-income";
 
-/** Render the summary's original-currency breakdown as a compact string. */
-function originalCurrencyLabel(
-  totals: { currency: string; amount: number }[] | undefined
-): string {
-  if (!totals || totals.length === 0) return "—";
-  return totals
-    .map((t) => formatMoney(t.amount, t.currency as ExpenseCurrency))
-    .join(" · ");
-}
-
 export default function ProjectIncomePage() {
   const router = useRouter();
   const { search, setSearch, page, setPage, query, summary, items, pagination } =
     useProjectIncome();
+
+  // Summary is per-project totals; the headline count sums each project's record count.
+  const recordCount =
+    summary.data?.by_project?.reduce((n, p) => n + (p.count ?? 0), 0) ?? 0;
 
   const columns: DataTableColumn<ProjectIncome>[] = [
     {
@@ -65,7 +59,7 @@ export default function ProjectIncomePage() {
     {
       key: "project",
       header: "Project",
-      render: (r) => r.project_name ?? "—",
+      render: (r) => r.project?.name ?? "—",
     },
     {
       key: "date",
@@ -96,22 +90,16 @@ export default function ProjectIncomePage() {
       />
 
       {/* Summary header */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatusCard
           title="Total (PKR)"
-          value={formatMoney(summary.data?.total_pkr ?? 0)}
+          value={formatMoney(summary.data?.total_income ?? 0)}
           icon={Coins}
           variant="primary"
         />
         <StatusCard
-          title="Original currency"
-          value={originalCurrencyLabel(summary.data?.totals)}
-          icon={TrendingUp}
-          variant="success"
-        />
-        <StatusCard
           title="Records"
-          value={String(summary.data?.count ?? 0)}
+          value={String(recordCount)}
           icon={Hash}
           variant="accent"
         />
@@ -162,10 +150,10 @@ export default function ProjectIncomePage() {
         </QueryState>
       </Card>
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between text-sm text-foreground-muted">
           <span>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.current_page} of {pagination.total_pages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -179,7 +167,7 @@ export default function ProjectIncomePage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= pagination.totalPages}
+              disabled={page >= pagination.total_pages}
               onClick={() => setPage(page + 1)}
             >
               Next

@@ -12,7 +12,7 @@ export interface AnnouncementBody {
 }
 
 export const announcementsApi = {
-  /** `POST /notifications/announcements` → count of recipients notified. */
+  /** `POST /notifications/announcements` → `{ recipient_count }` (recipients notified). */
   send: (body: AnnouncementBody) =>
-    api.post<{ recipients?: number }>("/notifications/announcements", body),
+    api.post<{ recipient_count?: number }>("/notifications/announcements", body),
 };

@@ -19,8 +19,7 @@ import { toWireDate, parseAmount } from "@/lib/format";
 import { uploadFile } from "@/lib/api/uploads";
 import type {
   CreateEmployeeBody,
-  Perk,
-  SalaryComponent,
+  CreateEmployeePerk,
 } from "@/lib/api/employees";
 import { useAddEmployee } from "./use-add-employee";
 
@@ -57,15 +56,32 @@ const ROLE_OPTIONS = [
   { value: "hr", label: "HR" },
 ];
 
-const SALARY_FIELDS: { name: keyof FormValues; label: string; type: string; required?: boolean }[] = [
-  { name: "sal_basic", label: "Basic", type: "basic", required: true },
-  { name: "sal_house_rent", label: "House Rent", type: "house_rent" },
-  { name: "sal_medical", label: "Medical", type: "medical" },
-  { name: "sal_transport", label: "Transport", type: "transport" },
-  { name: "sal_utility", label: "Utility", type: "utility" },
-  { name: "sal_tax", label: "Tax", type: "tax" },
-  { name: "sal_provident_fund", label: "Provident Fund", type: "provident_fund" },
-  { name: "sal_insurance", label: "Insurance", type: "insurance" },
+/** Named salary keys accepted by createEmployeeSchema (folded into components). */
+type SalaryKey =
+  | "basic_salary"
+  | "house_rent"
+  | "medical"
+  | "transport"
+  | "utility"
+  | "tax"
+  | "provident_fund"
+  | "insurance";
+
+/** `key` is the create-body wire field name (createEmployeeSchema salaryFields). */
+const SALARY_FIELDS: {
+  name: keyof FormValues;
+  label: string;
+  key: SalaryKey;
+  required?: boolean;
+}[] = [
+  { name: "sal_basic", label: "Basic", key: "basic_salary", required: true },
+  { name: "sal_house_rent", label: "House Rent", key: "house_rent" },
+  { name: "sal_medical", label: "Medical", key: "medical" },
+  { name: "sal_transport", label: "Transport", key: "transport" },
+  { name: "sal_utility", label: "Utility", key: "utility" },
+  { name: "sal_tax", label: "Tax", key: "tax" },
+  { name: "sal_provident_fund", label: "Provident Fund", key: "provident_fund" },
+  { name: "sal_insurance", label: "Insurance", key: "insurance" },
 ];
 
 const PERK_TYPES = Object.keys(PERK_TYPE_LABELS) as PerkType[];
@@ -124,21 +140,21 @@ export default function AddEmployeePage() {
         contract ? uploadFile(contract, "contracts") : Promise.resolve(null),
       ]);
 
-      const salary_components: SalaryComponent[] = SALARY_FIELDS.reduce<SalaryComponent[]>(
-        (acc, f) => {
-          const raw = (v[f.name] as string) ?? "";
-          if (raw.trim()) acc.push({ type: f.type, label: f.label, amount: parseAmount(raw) });
-          return acc;
-        },
-        []
-      );
+      // Named salary fields — createEmployeeSchema folds these into components server-side.
+      const salaryFields: Partial<Record<SalaryKey, number>> = {};
+      SALARY_FIELDS.forEach((f) => {
+        const raw = (v[f.name] as string) ?? "";
+        if (raw.trim()) salaryFields[f.key] = parseAmount(raw);
+      });
 
-      const perksBody: Perk[] = PERK_TYPES.filter((t) => perks[t].enabled).map((t) => ({
-        title: PERK_TYPE_LABELS[t],
-        type: t,
-        amount: perks[t].amount.trim() ? parseAmount(perks[t].amount) : undefined,
-        percentage: perks[t].percentage.trim() ? Number(perks[t].percentage) : undefined,
-      }));
+      const perksBody: CreateEmployeePerk[] = PERK_TYPES.filter((t) => perks[t].enabled).map(
+        (t) => ({
+          key: t,
+          enabled: true,
+          amount: perks[t].amount.trim() ? parseAmount(perks[t].amount) : undefined,
+          percentage: perks[t].percentage.trim() ? Number(perks[t].percentage) : undefined,
+        })
+      );
 
       const body: CreateEmployeeBody = {
         full_name: v.full_name,
@@ -148,7 +164,6 @@ export default function AddEmployeePage() {
         dob: v.dob,
         designation_id: v.designation_id,
         department_id: v.department_id,
-        manager_id: v.manager_id || undefined,
         role: v.role,
         employment_type: v.employment_type,
         joined_at: v.joined_at || undefined,
@@ -160,7 +175,7 @@ export default function AddEmployeePage() {
         cnic_front_image: frontRes?.url ?? undefined,
         cnic_back_image: backRes?.url ?? undefined,
         contract_document: contractRes?.url ?? undefined,
-        salary_components,
+        ...salaryFields,
         perks: perksBody,
       };
 

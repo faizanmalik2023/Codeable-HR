@@ -1,5 +1,6 @@
 import { api } from "@/lib/api/client";
 import type {
+  EmployeeRef,
   LeaveBalanceModel,
   LeaveModel,
   LeaveTypeModel,
@@ -25,9 +26,15 @@ export interface LeaveDecisionBody {
 }
 
 export const leavesApi = {
-  quota: () => api.get<LeaveBalanceModel[]>("/leaves/quota"),
+  // `GET /leaves/quota` returns `{ leaves: [...] }` — unwrap to the array.
+  quota: () =>
+    api.get<{ leaves: LeaveBalanceModel[] }>("/leaves/quota").then((r) => r.leaves),
 
-  types: () => api.get<LeaveTypeModel[]>("/leaves/types"),
+  // `GET /leaves/types` returns `{ leave_types: [...] }` — unwrap to the array.
+  types: () =>
+    api
+      .get<{ leave_types: LeaveTypeModel[] }>("/leaves/types")
+      .then((r) => r.leave_types),
 
   apply: (body: LeaveApplyBody) => api.post<LeaveModel>("/leaves/apply", body),
 
@@ -40,8 +47,11 @@ export const leavesApi = {
 
   team: () => api.get<{ items: TeamMemberModel[] }>("/leaves/team"),
 
+  // Returns the member at top-level `employee` alongside the paginated `items`.
   teamMember: (employeeId: string) =>
-    api.get<Paginated<LeaveModel>>(`/leaves/team/${employeeId}`),
+    api.get<Paginated<LeaveModel> & { employee?: EmployeeRef }>(
+      `/leaves/team/${employeeId}`
+    ),
 
   decision: (id: string, body: LeaveDecisionBody) =>
     api.patch<LeaveModel>(`/leaves/${id}/decision`, body),

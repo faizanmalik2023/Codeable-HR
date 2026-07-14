@@ -79,7 +79,7 @@ export default function LeaveHistoryPage() {
     },
   ];
 
-  const totalItems = pagination?.totalItems ?? items.length;
+  const totalItems = pagination?.total_items ?? items.length;
 
   return (
     <div className="space-y-6">
@@ -120,10 +120,10 @@ export default function LeaveHistoryPage() {
         />
       </Card>
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between text-sm text-foreground-muted">
           <span>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.current_page} of {pagination.total_pages}
           </span>
           <div className="flex gap-2">
             <Button
@@ -137,7 +137,7 @@ export default function LeaveHistoryPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= pagination.totalPages}
+              disabled={page >= pagination.total_pages}
               onClick={() => setPage(page + 1)}
             >
               Next

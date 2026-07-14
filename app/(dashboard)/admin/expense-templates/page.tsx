@@ -50,7 +50,7 @@ export default function ExpenseTemplatesPage() {
                     )}
                   </div>
                   <p className="text-sm text-foreground-muted">
-                    {formatMoney(t.amount, t.currency)}
+                    {formatMoney(t.default_amount, t.currency)}
                     {t.cadence || t.frequency
                       ? ` · ${t.cadence ?? prettify(t.frequency)}`
                       : ""}

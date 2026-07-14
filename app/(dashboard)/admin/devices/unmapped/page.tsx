@@ -43,7 +43,7 @@ export default function UnmappedPunchesPage() {
         {(list) => (
           <div className="space-y-2">
             {list.map((p, i) => (
-              <Card key={`${p.device}-${p.pin}-${i}`} className="flex items-center gap-3 p-4">
+              <Card key={`${p.device_serial}-${p.pin}-${i}`} className="flex items-center gap-3 p-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-muted">
                   <KeyRound className="h-5 w-5 text-warning" />
                 </div>
@@ -52,7 +52,7 @@ export default function UnmappedPunchesPage() {
                     PIN <span className="font-mono">{p.pin}</span>
                   </p>
                   <p className="truncate text-sm text-foreground-muted">
-                    {p.device} · {timeAgo(p.timestamp)}
+                    {p.device_serial} · {timeAgo(p.punched_at)}
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setActive(p)}>

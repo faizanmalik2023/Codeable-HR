@@ -54,11 +54,11 @@ export default function AdminDevicesPage() {
       ),
     },
     {
-      key: "last_sync",
+      key: "last_seen_at",
       header: "Last sync",
       render: (d) => (
         <span className="text-foreground-muted">
-          {d.last_sync ? timeAgo(d.last_sync) : "Never"}
+          {d.last_seen_at ? timeAgo(d.last_seen_at) : "Never"}
         </span>
       ),
     },

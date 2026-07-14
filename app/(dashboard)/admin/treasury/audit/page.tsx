@@ -37,11 +37,11 @@ export default function AuditPage() {
       render: (e) => <span className="text-foreground">{e.actor}</span>,
     },
     {
-      key: "timestamp",
+      key: "created_at",
       header: "When",
       align: "right",
       render: (e) => (
-        <span className="text-foreground-muted">{formatOrdinalDate(e.timestamp)}</span>
+        <span className="text-foreground-muted">{formatOrdinalDate(e.created_at)}</span>
       ),
     },
   ];
@@ -63,7 +63,7 @@ export default function AuditPage() {
         <DataTable
           columns={columns}
           data={items}
-          rowKey={(e) => e.id ?? `${e.entity_id}-${e.timestamp}`}
+          rowKey={(e) => e.id ?? `${e.entity_id}-${e.created_at}`}
           isLoading={query.isLoading}
           empty={
             <EmptyState
@@ -75,10 +75,10 @@ export default function AuditPage() {
         />
       </Card>
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between text-sm text-foreground-muted">
           <span>
-            Page {pagination.currentPage} of {pagination.totalPages}
+            Page {pagination.current_page} of {pagination.total_pages}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
@@ -87,7 +87,7 @@ export default function AuditPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={page >= pagination.totalPages}
+              disabled={page >= pagination.total_pages}
               onClick={() => setPage(page + 1)}
             >
               Next

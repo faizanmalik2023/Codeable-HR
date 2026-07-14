@@ -22,7 +22,6 @@ import {
   Receipt,
   FileCheck2,
   Megaphone,
-  TrendingUp,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +30,7 @@ import { StatusCard } from "@/components/shared/status-card";
 import { QuickActionCard } from "@/components/shared/quick-action-card";
 import { SkeletonStats, SkeletonCard, Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/empty-state";
-import { formatMoney, formatOrdinalDate, timeAgo } from "@/lib/format";
+import { formatOrdinalDate, timeAgo } from "@/lib/format";
 import { CHECK_IN_LABELS } from "@/lib/enums";
 import { hasRole } from "@/stores/auth-store";
 import { useDashboard } from "./use-dashboard";
@@ -159,20 +158,19 @@ export default function DashboardPage() {
       {/* Admin org stats */}
       {data.org_stats && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatusCard title="Headcount" value={String(data.org_stats.totalEmployees ?? 0)} icon={Users} variant="primary" />
-          <StatusCard title="Active" value={String(data.org_stats.activeEmployees ?? 0)} icon={UserCheck} variant="success" />
-          <StatusCard title="On leave today" value={String(data.org_stats.onLeaveToday ?? 0)} icon={Palmtree} variant="warning" />
+          <StatusCard title="Headcount" value={String(data.org_stats.total_employees ?? 0)} icon={Users} variant="primary" />
+          <StatusCard title="Present today" value={String(data.org_stats.present_today ?? 0)} icon={UserCheck} variant="success" />
+          <StatusCard title="On leave today" value={String(data.org_stats.on_leave ?? 0)} icon={Palmtree} variant="warning" />
           <StatusCard title="Pending leaves" value={String(data.pending_leaves?.length ?? 0)} icon={ClipboardList} variant="accent" />
         </div>
       )}
 
       {/* At a glance */}
       {glance && !data.org_stats && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatusCard title="Hours worked" value={`${glance.total_hours_worked ?? 0}h`} icon={Clock} variant="primary" />
-          <StatusCard title="Attendance" value={`${glance.attendance_percentage ?? 0}%`} icon={TrendingUp} variant="success" />
-          <StatusCard title="Next salary" value={formatMoney(glance.next_salary)} icon={Wallet} variant="accent" />
-          <StatusCard title="Next holiday" value={glance.next_holiday ? formatOrdinalDate(glance.next_holiday) : "—"} icon={Palmtree} variant="warning" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <StatusCard title="Hours worked" value={`${glance.total_hours_worked?.hours ?? 0}h ${glance.total_hours_worked?.minutes ?? 0}m`} icon={Clock} variant="primary" />
+          <StatusCard title="Next salary" value={glance.next_salary?.date ? formatOrdinalDate(glance.next_salary.date) : "—"} icon={Wallet} variant="accent" />
+          <StatusCard title="Next holiday" value={glance.next_holiday?.date ? formatOrdinalDate(glance.next_holiday.date) : "—"} icon={Palmtree} variant="warning" />
         </div>
       )}
 
@@ -181,11 +179,11 @@ export default function DashboardPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <SectionCard title="Team EOD Updates" href="/eod-reports/team" icon={ClipboardList}>
             {(data.team_eod_updates ?? []).slice(0, 4).map((m, i) => (
-              <div key={m.id ?? m.employee_code ?? i} className="flex items-center gap-3 py-2">
-                <Avatar name={m.full_name} src={m.avatar ?? undefined} size="sm" />
-                <span className="flex-1 text-sm font-medium text-foreground">{m.full_name}</span>
-                {typeof m.unread_count === "number" && m.unread_count > 0 && (
-                  <Badge variant="warning">{m.unread_count} new</Badge>
+              <div key={m.employee?.employee_code ?? m.employee?.id ?? i} className="flex items-center gap-3 py-2">
+                <Avatar name={m.employee?.full_name} src={m.employee?.avatar ?? undefined} size="sm" />
+                <span className="flex-1 text-sm font-medium text-foreground">{m.employee?.full_name}</span>
+                {typeof m.unread_eod_count === "number" && m.unread_eod_count > 0 && (
+                  <Badge variant="warning">{m.unread_eod_count} new</Badge>
                 )}
               </div>
             ))}
@@ -216,7 +214,7 @@ export default function DashboardPage() {
                     <p className="text-xs font-medium text-foreground-muted">{b.name}</p>
                     <p className="mt-1 text-xl font-bold text-foreground">
                       {b.remaining}
-                      <span className="text-sm font-normal text-foreground-subtle"> / {b.total}</span>
+                      <span className="text-sm font-normal text-foreground-subtle"> / {b.quota}</span>
                     </p>
                     <p className="text-[11px] text-foreground-subtle">{b.used} used</p>
                   </div>
@@ -235,7 +233,7 @@ export default function DashboardPage() {
                       {l.employee?.full_name ?? l.employee?.name}
                     </p>
                     <p className="text-xs text-foreground-muted">
-                      {l.leave_type_name ?? l.leave_type} · {l.total_days ?? 1}d
+                      {l.leave_type_name ?? l.leave_type} · {l.days ?? 1}d
                     </p>
                   </div>
                   <Badge variant="warning">Pending</Badge>
@@ -267,7 +265,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-foreground">{h.name}</p>
                     <p className="text-xs text-foreground-muted">{formatOrdinalDate(h.date)}</p>
                   </div>
-                  {typeof h.daysUntil === "number" && <Badge variant="muted">{h.daysUntil}d</Badge>}
+                  {typeof h.days_left === "number" && <Badge variant="muted">{h.days_left}d</Badge>}
                 </div>
               ))}
             </SectionCard>
@@ -276,11 +274,11 @@ export default function DashboardPage() {
           {data.birthdays?.length ? (
             <SectionCard title="Birthdays" icon={Cake}>
               {data.birthdays.slice(0, 4).map((b, i) => (
-                <div key={b.employee_code ?? i} className="flex items-center gap-3 py-2">
-                  <Avatar name={b.name} src={b.avatar ?? undefined} size="sm" />
+                <div key={b.employee?.employee_code ?? b.employee?.id ?? i} className="flex items-center gap-3 py-2">
+                  <Avatar name={b.employee?.full_name} src={b.employee?.avatar ?? undefined} size="sm" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{b.name}</p>
-                    <p className="text-xs text-foreground-muted">{formatOrdinalDate(b.birthday)}</p>
+                    <p className="text-sm font-medium text-foreground">{b.employee?.full_name}</p>
+                    <p className="text-xs text-foreground-muted">{formatOrdinalDate(b.date)}</p>
                   </div>
                   <Cake className="h-4 w-4 text-accent" />
                 </div>
@@ -291,9 +289,9 @@ export default function DashboardPage() {
           {data.on_leave_today?.length ? (
             <SectionCard title="On Leave Today" icon={Palmtree}>
               {data.on_leave_today.slice(0, 5).map((e, i) => (
-                <div key={e.employee_code ?? i} className="flex items-center gap-3 py-2">
-                  <Avatar name={e.full_name ?? e.name} src={e.avatar ?? undefined} size="sm" />
-                  <span className="text-sm font-medium text-foreground">{e.full_name ?? e.name}</span>
+                <div key={e.employee?.employee_code ?? e.employee?.id ?? i} className="flex items-center gap-3 py-2">
+                  <Avatar name={e.employee?.full_name} src={e.employee?.avatar ?? undefined} size="sm" />
+                  <span className="text-sm font-medium text-foreground">{e.employee?.full_name}</span>
                 </div>
               ))}
             </SectionCard>
@@ -324,7 +322,9 @@ function ActivityRow({ activity }: { activity: ActivityItemModel }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground">{activity.title}</p>
-        {activity.subtitle && <p className="truncate text-xs text-foreground-muted">{activity.subtitle}</p>}
+        {(activity.body ?? activity.subtitle) && (
+          <p className="truncate text-xs text-foreground-muted">{activity.body ?? activity.subtitle}</p>
+        )}
       </div>
       <span className="whitespace-nowrap text-xs text-foreground-subtle">
         {timeAgo(activity.timestamp, activity.time_ago)}

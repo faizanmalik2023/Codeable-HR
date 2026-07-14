@@ -2,7 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { departmentsApi, toItems, type DepartmentUpdateBody } from "@/lib/api/departments";
+import {
+  departmentsApi,
+  toItems,
+  type Department,
+  type DepartmentListResponse,
+  type DepartmentUpdateBody,
+} from "@/lib/api/departments";
 import { ApiRequestError } from "@/lib/api/client";
 import { departmentKeys } from "../use-departments";
 
@@ -13,9 +19,22 @@ const errMsg = (e: unknown, fallback: string) =>
 export function useDepartmentDetail(id: string) {
   const qc = useQueryClient();
 
+  // There is no `GET /departments/:id` on the backend — the full department
+  // (heads + members) already comes back with the list. Hydrate the detail from
+  // the list-query cache when present, otherwise fetch the list once and pick it.
   const query = useQuery({
     queryKey: departmentKeys.detail(id),
-    queryFn: () => departmentsApi.get(id),
+    queryFn: async (): Promise<Department> => {
+      const cached = qc.getQueryData<DepartmentListResponse>(departmentKeys.list());
+      const items = toItems(cached ?? (await departmentsApi.list()));
+      const found = items.find((d) => d.id === id);
+      if (!found)
+        throw new ApiRequestError(404, {
+          code: "DEPARTMENT_NOT_FOUND",
+          message: "Department not found",
+        });
+      return found;
+    },
     enabled: !!id,
   });
 
