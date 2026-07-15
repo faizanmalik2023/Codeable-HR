@@ -1,17 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import {
-  Bell,
-  CalendarCheck,
-  CheckCheck,
-  FileCheck2,
-  FileText,
-  MessageSquare,
-  Receipt,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FilterTabs } from "@/components/ui/filter-tabs";
@@ -21,36 +11,9 @@ import { QueryState } from "@/components/shared/query-state";
 import { NOTIFICATION_FILTERS } from "@/lib/enums";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { notificationVisual, routeForNotification } from "@/lib/notifications-nav";
 import { useNotifications } from "./use-notifications";
 import type { NotificationModel } from "@/types";
-
-/* Notification category → icon + tone mapping (mirrors the dashboard's activityVisual). */
-function notificationVisual(category: string): { icon: LucideIcon; className: string } {
-  const c = (category ?? "").toLowerCase();
-  if (c.includes("leave")) return { icon: CalendarCheck, className: "bg-success-muted text-success" };
-  if (c.includes("eod")) return { icon: FileText, className: "bg-primary-muted text-primary" };
-  if (c.includes("payslip") || c.includes("salary"))
-    return { icon: Wallet, className: "bg-success-muted text-success" };
-  if (c.includes("claim")) return { icon: FileCheck2, className: "bg-warning-muted text-warning" };
-  if (c.includes("expense")) return { icon: Receipt, className: "bg-warning-muted text-warning" };
-  if (c.includes("ticket")) return { icon: MessageSquare, className: "bg-primary-muted text-primary" };
-  if (c.includes("policy")) return { icon: FileCheck2, className: "bg-secondary text-foreground-muted" };
-  return { icon: Bell, className: "bg-secondary text-foreground-muted" };
-}
-
-/* Deep-link map keyed by `notification.data.target`. */
-const TARGET_ROUTES: Record<string, string> = {
-  leave: "/leaves",
-  eod: "/eod-reports",
-  claim: "/insurance-claims",
-  expense: "/expense-claims",
-  ticket: "/my-issues",
-  policy: "/policies",
-  holiday: "/all-holidays",
-  payslip: "/salary-details",
-  profile: "/profile",
-  security: "/settings",
-};
 
 const FILTER_LABELS: Record<string, string> = { all: "All", unread: "Unread", read: "Read" };
 
@@ -63,8 +26,7 @@ export default function NotificationsPage() {
 
   function handleClick(n: NotificationModel) {
     if (!n.is_read) markRead.mutate(n.id);
-    const target = n.data?.target;
-    const route = target ? TARGET_ROUTES[target] : undefined;
+    const route = routeForNotification(n);
     if (route) router.push(route);
   }
 

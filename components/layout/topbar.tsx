@@ -4,7 +4,6 @@ import * as React from "react";
 import { useTheme } from "next-themes";
 import { motion } from "framer-motion";
 import {
-  Bell,
   Search,
   Sun,
   Moon,
@@ -17,6 +16,7 @@ import { cn, getGreeting } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -168,14 +168,7 @@ export function Topbar({ onMobileMenuToggle, sidebarCollapsed }: TopbarProps) {
         )}
 
         {/* Notifications */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative text-foreground-muted hover:text-foreground"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
-        </Button>
+        <NotificationBell />
 
         {/* User menu */}
         <div className="ml-2 border-l border-border pl-2">
