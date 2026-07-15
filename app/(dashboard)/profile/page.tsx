@@ -6,6 +6,7 @@ import {
   Camera,
   Trash2,
   Upload,
+  Loader2,
   Eye,
   EyeOff,
   ArrowRight,
@@ -121,13 +122,20 @@ function HeaderCard({
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
+          disabled={uploading}
           className="group relative rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label="Change photo"
+          aria-label={uploading ? "Uploading photo" : "Change photo"}
         >
           <Avatar name={profile.full_name} src={profile.avatar ?? undefined} size="xl" />
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-            <Camera className="h-5 w-5 text-white" />
-          </span>
+          {uploading ? (
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+              <Loader2 className="h-5 w-5 animate-spin text-white" />
+            </span>
+          ) : (
+            <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+              <Camera className="h-5 w-5 text-white" />
+            </span>
+          )}
         </button>
 
         <div className="min-w-0 flex-1">
