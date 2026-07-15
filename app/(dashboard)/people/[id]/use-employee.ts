@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   employeesApi,
+  designationLabel,
   type IncrementBody,
   type PromoteBody,
   type UpdateEmployeeBody,
@@ -96,7 +97,7 @@ export function useEmployee(id: string) {
   });
 
   const designationOptions = React.useMemo(
-    () => (designations.data ?? []).map((d) => ({ value: d.id, label: d.name })),
+    () => (designations.data ?? []).map((d) => ({ value: d.id, label: designationLabel(d) })),
     [designations.data]
   );
 

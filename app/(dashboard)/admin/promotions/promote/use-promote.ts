@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   employeesApi,
+  designationLabel,
   type PromoteBody,
   type SalaryComponent,
 } from "@/lib/api/employees";
@@ -60,8 +61,7 @@ export function usePromote() {
     employee,
     designationOptions: (designations.data ?? []).map((d) => ({
       value: d.id,
-      label: d.name,
-      description: d.track ?? d.level ?? undefined,
+      label: designationLabel(d),
     })),
     promote,
   };

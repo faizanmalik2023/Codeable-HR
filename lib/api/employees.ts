@@ -113,7 +113,19 @@ export interface Designation {
   id: string;
   name: string;
   track?: string | null;
-  level?: string | null;
+  level?: string | number | null;
+}
+
+/**
+ * Human label for a designation, matching the mobile app: `Track · Lx · Name`
+ * (e.g. "Design · L1 · Design Intern"). Falls back to just the name for legacy
+ * rows that carry no track/level.
+ */
+export function designationLabel(d: Designation): string {
+  const hasLevel = d.level !== null && d.level !== undefined && d.level !== "";
+  if (d.track && hasLevel) return `${d.track} · L${d.level} · ${d.name}`;
+  if (d.track) return `${d.track} · ${d.name}`;
+  return d.name;
 }
 
 export interface Department {
