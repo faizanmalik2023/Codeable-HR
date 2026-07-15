@@ -182,6 +182,8 @@ export interface DashboardModel {
   greeting: string;
   current_date?: string;
   eod_pending: boolean;
+  /** Today's EOD status (null = none filed / admin). Drives the EOD banner state. */
+  eod_status?: EodStatus | null;
   at_a_glance?: {
     total_hours_worked?: GlanceHours;
     attendance_status?: CheckInStatus;

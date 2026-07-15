@@ -33,6 +33,7 @@ import { QuickActionCard } from "@/components/shared/quick-action-card";
 import { SkeletonStats, SkeletonCard, Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/empty-state";
 import { formatOrdinalDate, timeAgo } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { CHECK_IN_LABELS } from "@/lib/enums";
 import { hasRole } from "@/stores/auth-store";
 import { useDashboard } from "./use-dashboard";
@@ -70,23 +71,52 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* EOD reminder banner */}
-      {data.eod_pending && (
-        <Link href="/eod-reports/submit" className="block">
-          <Card hover className="flex items-center justify-between gap-4 border-warning/30 bg-warning-muted/40 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning text-warning-foreground">
-                <FileText className="h-5 w-5" />
+      {/* EOD status banner — reflects the actual state of today's EOD */}
+      {(() => {
+        const banner = data.eod_pending
+          ? {
+              href: "/eod-reports/submit",
+              title: "Your EOD is pending",
+              desc: "Submit today's end-of-day report.",
+              tone: "warning" as const,
+            }
+          : data.eod_status === "pending"
+            ? {
+                href: "/eod-reports",
+                title: "EOD submitted",
+                desc: "Awaiting your manager's review.",
+                tone: "success" as const,
+              }
+            : data.eod_status === "submitted"
+              ? {
+                  href: "/eod-reports",
+                  title: "EOD reviewed",
+                  desc: "Your manager reviewed today's report.",
+                  tone: "success" as const,
+                }
+              : null;
+        if (!banner) return null;
+        const tones =
+          banner.tone === "warning"
+            ? { card: "border-warning/30 bg-warning-muted/40", icon: "bg-warning text-warning-foreground" }
+            : { card: "border-success/30 bg-success-muted/40", icon: "bg-success text-success-foreground" };
+        return (
+          <Link href={banner.href} className="block">
+            <Card hover className={cn("flex items-center justify-between gap-4 p-4", tones.card)}>
+              <div className="flex items-center gap-3">
+                <div className={cn("flex h-10 w-10 items-center justify-center rounded-full", tones.icon)}>
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">{banner.title}</p>
+                  <p className="text-sm text-foreground-muted">{banner.desc}</p>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold text-foreground">Your EOD is pending</p>
-                <p className="text-sm text-foreground-muted">Submit today&apos;s end-of-day report.</p>
-              </div>
-            </div>
-            <ArrowRight className="h-5 w-5 text-foreground-muted" />
-          </Card>
-        </Link>
-      )}
+              <ArrowRight className="h-5 w-5 text-foreground-muted" />
+            </Card>
+          </Link>
+        );
+      })()}
 
       {/* Greeting — navy→blue gradient hero with rotated emblem watermark */}
       <div

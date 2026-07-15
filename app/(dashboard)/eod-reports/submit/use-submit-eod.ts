@@ -27,6 +27,7 @@ export function useSubmitEod() {
   const onSuccess = (msg: string) => {
     toast.success(msg);
     qc.invalidateQueries({ queryKey: ["eods"] });
+    qc.invalidateQueries({ queryKey: qk.dashboard });
     router.push("/eod-reports");
   };
 
