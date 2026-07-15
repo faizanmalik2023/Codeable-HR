@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, CornerDownLeft, Clock, X, ArrowUp, ArrowDown } from "lucide-react";
@@ -53,8 +54,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState(0);
   const [recentIds, setRecentIds] = React.useState<string[]>([]);
+  const [mounted, setMounted] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
+
+  // Portal target only exists on the client.
+  React.useEffect(() => setMounted(true), []);
 
   // Reset + focus whenever the palette opens; refresh recents from storage.
   React.useEffect(() => {
@@ -149,7 +154,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   // Flat index bookkeeping so grouped rendering can map to the nav index.
   let flatIndex = -1;
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -159,9 +166,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
         >
-          {/* Backdrop */}
+          {/* Backdrop — dark scrim that blurs + darkens the page behind the palette */}
           <div
-            className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-[hsl(243_50%_4%/0.68)] backdrop-blur-md"
             onClick={() => onOpenChange(false)}
           />
 
@@ -285,6 +292,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
