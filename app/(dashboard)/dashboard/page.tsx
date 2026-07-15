@@ -141,16 +141,26 @@ export default function DashboardPage() {
 
       {/* Payroll banner (HR/Admin) */}
       {isHrPlus && (
-        <Link href="/hr/leaves">
-          <Card hover className="flex items-center justify-between gap-4 bg-primary p-5 text-primary-foreground">
+        <Link href="/hr/payroll" className="block">
+          <Card
+            hover
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 bg-primary p-5 text-primary-foreground"
+          >
             <div className="flex items-center gap-3">
-              <Wallet className="h-6 w-6" />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15">
+                <Wallet className="h-5 w-5" />
+              </span>
               <div>
-                <p className="font-semibold">Payroll</p>
-                <p className="text-sm text-primary-foreground/80">Generate and release this month&apos;s payslips.</p>
+                <p className="font-semibold leading-tight">Payroll</p>
+                <p className="text-sm text-primary-foreground/80">
+                  Generate and release this month&apos;s payslips.
+                </p>
               </div>
             </div>
-            <ArrowRight className="h-5 w-5" />
+            <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/15 px-4 py-2 text-sm font-medium">
+              Run payroll
+              <ArrowRight className="h-4 w-4" />
+            </span>
           </Card>
         </Link>
       )}
