@@ -8,7 +8,6 @@ import {
   Sun,
   Moon,
   Menu,
-  Plus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { LogOut, User as UserIcon, Settings } from "lucide-react";
@@ -132,17 +131,6 @@ export function Topbar({ onMobileMenuToggle, sidebarCollapsed }: TopbarProps) {
           aria-label="Search"
         >
           <Search className="h-5 w-5" />
-        </Button>
-
-        {/* Quick Add Button — also opens the palette */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="hidden sm:flex gap-2"
-          onClick={() => setPaletteOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-          <span>Quick Action</span>
         </Button>
 
         {/* Theme Toggle */}
