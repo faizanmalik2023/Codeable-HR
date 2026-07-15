@@ -15,8 +15,8 @@ import { useRouter } from "next/navigation";
 import { LogOut, User as UserIcon, Settings } from "lucide-react";
 import { cn, getGreeting } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
+import { CommandPalette } from "@/components/layout/command-palette";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -38,8 +38,21 @@ export function Topbar({ onMobileMenuToggle, sidebarCollapsed }: TopbarProps) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [mounted, setMounted] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
   const authUser = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
+
+  // Global ⌘K / Ctrl+K opens the command palette (Stripe-style search).
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const user = {
     name: authUser?.full_name ?? "Guest",
@@ -95,19 +108,39 @@ export function Topbar({ onMobileMenuToggle, sidebarCollapsed }: TopbarProps) {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Search */}
-      <div className="hidden lg:block w-64">
-        <Input
-          placeholder="Search..."
-          icon={<Search className="h-4 w-4" />}
-          className="bg-secondary/50"
-        />
-      </div>
+      {/* Search — opens the command palette */}
+      <button
+        type="button"
+        onClick={() => setPaletteOpen(true)}
+        className="hidden lg:flex h-9 w-72 items-center gap-2 rounded-[var(--radius)] border border-border bg-secondary/50 px-3 text-sm text-foreground-muted transition-colors hover:border-border-hover hover:bg-secondary"
+      >
+        <Search className="h-4 w-4 shrink-0" />
+        <span className="flex-1 text-left">Search pages and actions…</span>
+        <kbd className="rounded border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-foreground-subtle">
+          ⌘K
+        </kbd>
+      </button>
 
       {/* Quick Actions */}
       <div className="flex items-center gap-2">
-        {/* Quick Add Button */}
-        <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
+        {/* Mobile / tablet search icon */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden text-foreground-muted hover:text-foreground"
+          onClick={() => setPaletteOpen(true)}
+          aria-label="Search"
+        >
+          <Search className="h-5 w-5" />
+        </Button>
+
+        {/* Quick Add Button — also opens the palette */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden sm:flex gap-2"
+          onClick={() => setPaletteOpen(true)}
+        >
           <Plus className="h-4 w-4" />
           <span>Quick Action</span>
         </Button>
@@ -173,6 +206,8 @@ export function Topbar({ onMobileMenuToggle, sidebarCollapsed }: TopbarProps) {
           </DropdownMenu>
         </div>
       </div>
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </header>
   );
 }

@@ -22,6 +22,8 @@ import {
   Receipt,
   FileCheck2,
   Megaphone,
+  Shield,
+  BookOpen,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -133,8 +135,12 @@ export default function DashboardPage() {
           <>
             <QuickActionCard title="Submit EOD" description="Log your day" icon={FileText} variant="primary" onClick={() => router.push("/eod-reports/submit")} />
             <QuickActionCard title="Apply Leave" description="Request time off" icon={CalendarPlus} onClick={() => router.push("/leaves/apply")} />
+            <QuickActionCard title="View Salary" description="Slips & breakdown" icon={Wallet} onClick={() => router.push("/salary-details")} />
             <QuickActionCard title="Attendance" description="View your logs" icon={Clock} onClick={() => router.push("/time")} />
+            <QuickActionCard title="Insurance Claim" description="Submit a claim" icon={Shield} onClick={() => router.push("/insurance-claims/submit")} />
+            <QuickActionCard title="Expense Claim" description="Get reimbursed" icon={Receipt} onClick={() => router.push("/expense-claims/submit")} />
             <QuickActionCard title="HR Help" description="Raise an issue" icon={MessageSquare} onClick={() => router.push("/my-issues/new")} />
+            <QuickActionCard title="Policies" description="Company handbook" icon={BookOpen} onClick={() => router.push("/policies")} />
           </>
         )}
       </div>
