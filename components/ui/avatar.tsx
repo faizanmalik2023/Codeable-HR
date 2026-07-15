@@ -42,6 +42,13 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
     const initials = name ? getInitials(name) : "?";
     const resolvedSrc = secureUrl(src);
 
+    // Reset the error state whenever the source changes, so a later-arriving valid
+    // URL (e.g. the profile refresh swapping a stale/403 avatar for the working one)
+    // retries instead of staying stuck on initials.
+    React.useEffect(() => {
+      setImageError(false);
+    }, [resolvedSrc]);
+
     return (
       <div
         ref={ref}

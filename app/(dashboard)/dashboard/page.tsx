@@ -72,7 +72,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* EOD reminder banner */}
       {data.eod_pending && (
-        <Link href="/eod-reports/submit">
+        <Link href="/eod-reports/submit" className="block">
           <Card hover className="flex items-center justify-between gap-4 border-warning/30 bg-warning-muted/40 p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning text-warning-foreground">

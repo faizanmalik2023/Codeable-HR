@@ -44,7 +44,7 @@ export default function SettingsPage() {
       <PageHeader title="Settings" description="Manage your preferences and account." />
 
       {/* Profile shortcut */}
-      <Link href="/profile">
+      <Link href="/profile" className="block">
         <Card hover className="flex items-center justify-between gap-4 p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-muted text-primary">

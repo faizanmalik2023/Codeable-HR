@@ -86,7 +86,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           sidebarCollapsed ? "md:pl-[72px]" : "md:pl-[240px]"
         )}
       >
-        <div className="p-4 md:p-6 lg:p-8">
+        <div className="px-4 py-4 md:px-6 md:py-5 lg:px-8 lg:py-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

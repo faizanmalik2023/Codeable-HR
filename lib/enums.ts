@@ -75,9 +75,12 @@ export const ExpenseStatusEnum = enumHelper<ExpenseStatus>({
 });
 
 export type EodStatus = "draft" | "pending" | "submitted";
+// Backend lifecycle: draft → (employee submits) pending → (manager reviews) submitted.
+// From the employee's view "pending" means "submitted, awaiting review", so it reads
+// as "Submitted"; the manager-acknowledged state reads as "Reviewed".
 export const EodStatusEnum = enumHelper<EodStatus>({
-  submitted: { label: "Submitted", tone: "success" },
-  pending: { label: "Pending", tone: "warning" },
+  pending: { label: "Submitted", tone: "success" },
+  submitted: { label: "Reviewed", tone: "default" },
   draft: { label: "Draft", tone: "muted" },
 });
 
@@ -296,7 +299,7 @@ export const LEAVE_FILTERS = ["all", "pending", "approved", "rejected"] as const
 export const CLAIM_FILTERS = ["all", "approved", "pending", "rejected"] as const;
 export const EXPENSE_FILTERS = ["all", "approved", "pending", "rejected"] as const;
 export const ISSUE_FILTERS = ["all", "open", "in_progress", "resolved", "closed"] as const;
-export const EOD_FILTERS = ["all", "submitted", "pending", "draft"] as const;
+export const EOD_FILTERS = ["all", "pending", "submitted", "draft"] as const;
 export const EOD_READ_FILTERS = ["all", "unread", "read"] as const;
 export const ATTENDANCE_FILTERS = [
   "all",
