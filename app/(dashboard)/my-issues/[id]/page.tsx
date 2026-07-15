@@ -2,12 +2,11 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { Clock, Send } from "lucide-react";
+import { Clock, Send, MessagesSquare, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { ErrorState } from "@/components/ui/empty-state";
@@ -18,7 +17,7 @@ import {
   ISSUE_CATEGORY_LABELS,
 } from "@/lib/enums";
 import { formatOrdinalDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, formatTime } from "@/lib/utils";
 import type { EmployeeRef, IssueMessage, IssueModel } from "@/types";
 import { useIssueThread } from "./use-issue-thread";
 
@@ -135,22 +134,41 @@ function IssueThread({
 
       {/* Thread */}
       <div className="space-y-4">
-        {grouped.map((group) => (
-          <div key={group.label} className="space-y-4">
-            <div className="flex justify-center">
-              <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground-muted">
-                {group.label}
-              </span>
-            </div>
-            {group.messages.map((message, i) => (
-              <MessageBubble
-                key={message.id ?? `${group.label}-${i}`}
-                message={message}
-                onRetry={onRetry}
-              />
-            ))}
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border border-dashed border-border bg-secondary/20 px-6 py-12 text-center">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-muted text-primary">
+              <MessagesSquare className="h-5 w-5" />
+            </span>
+            <p className="text-sm font-medium text-foreground">No replies yet</p>
+            <p className="max-w-xs text-xs text-foreground-muted">
+              Send a message below and HR will get back to you right here.
+            </p>
           </div>
-        ))}
+        ) : (
+          grouped.map((group) => (
+            <div key={group.label} className="space-y-2.5">
+              <div className="flex justify-center">
+                <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground-muted">
+                  {group.label}
+                </span>
+              </div>
+              {group.messages.map((message, i) => {
+                const prev = group.messages[i - 1];
+                // Group consecutive messages from the same sender — the avatar and
+                // name only lead the first message of each run.
+                const startsRun = !prev || prev.sender !== message.sender;
+                return (
+                  <MessageBubble
+                    key={message.id ?? `${group.label}-${i}`}
+                    message={message}
+                    startsRun={startsRun}
+                    onRetry={onRetry}
+                  />
+                );
+              })}
+            </div>
+          ))
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -158,37 +176,49 @@ function IssueThread({
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-sm md:pl-[240px]">
         <div className="mx-auto max-w-3xl p-4">
           {locked ? (
-            <p className="rounded-[var(--radius-lg)] bg-secondary/60 px-4 py-3 text-center text-sm text-foreground-muted">
-              This issue has been {issue.status}. You cannot reply.
+            <p className="flex items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-secondary/60 px-4 py-3 text-center text-sm text-foreground-muted">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              This issue has been {issue.status} — replies are closed.
             </p>
           ) : (
-            <div className="flex items-end gap-3">
-              <Textarea
-                ref={textareaRef}
-                value={draft}
-                onChange={(e) => {
-                  setDraft(e.target.value);
-                  autoGrow();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="Write a reply…"
-                rows={1}
-                className="max-h-40 min-h-[44px]"
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!draft.trim()}
-                size="icon"
-                aria-label="Send"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
+            <>
+              <div className="flex items-end gap-2 rounded-[var(--radius-lg)] border border-border bg-background-secondary py-1.5 pl-3 pr-1.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring">
+                <textarea
+                  ref={textareaRef}
+                  value={draft}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    autoGrow();
+                  }}
+                  onKeyDown={(e) => {
+                    // Enter sends; Shift+Enter (or Cmd/Ctrl+Enter) inserts a newline.
+                    if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Write a reply…"
+                  rows={1}
+                  className="max-h-40 min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-sm text-foreground placeholder:text-foreground-subtle focus:outline-none"
+                />
+                <Button
+                  onClick={handleSend}
+                  disabled={!draft.trim()}
+                  size="icon"
+                  className="shrink-0 rounded-full"
+                  aria-label="Send reply"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="mt-1.5 px-1 text-[11px] text-foreground-subtle">
+                <kbd className="rounded border border-border bg-secondary px-1 font-sans">Enter</kbd> to send
+                {" · "}
+                <kbd className="rounded border border-border bg-secondary px-1 font-sans">Shift</kbd>
+                {" + "}
+                <kbd className="rounded border border-border bg-secondary px-1 font-sans">Enter</kbd> for a new line
+              </p>
+            </>
           )}
         </div>
       </div>
@@ -198,9 +228,11 @@ function IssueThread({
 
 function MessageBubble({
   message,
+  startsRun,
   onRetry,
 }: {
   message: IssueMessage;
+  startsRun: boolean;
   onRetry: (message: IssueMessage) => void;
 }) {
   if (message.sender === "system") {
@@ -216,6 +248,7 @@ function MessageBubble({
   const own = message.sender === "user";
   const sending = message.delivery === "sending";
   const failed = message.delivery === "failed";
+  const time = message.timestamp ? formatTime(message.timestamp) : null;
 
   if (own) {
     return (
@@ -228,41 +261,43 @@ function MessageBubble({
         >
           {message.content}
         </div>
-        {sending && (
-          <span className="flex items-center gap-1 text-xs text-foreground-subtle">
+        {sending ? (
+          <span className="flex items-center gap-1 text-[11px] text-foreground-subtle">
             <Clock className="h-3 w-3" /> Sending…
           </span>
-        )}
-        {failed && (
+        ) : failed ? (
           <button
             type="button"
             onClick={() => onRetry(message)}
-            className="text-xs font-medium text-destructive hover:underline"
+            className="text-[11px] font-medium text-destructive hover:underline"
           >
             Not sent · Tap to retry
           </button>
-        )}
+        ) : time ? (
+          <span className="text-[11px] text-foreground-subtle">{time}</span>
+        ) : null}
       </div>
     );
   }
 
-  // HR message
+  // HR message — avatar + name only lead a run of consecutive replies.
   const senderName = message.sender_employee?.full_name ?? "HR";
   const senderAvatar = message.sender_employee?.avatar;
   return (
     <div className="flex items-start gap-2.5">
-      {senderAvatar ? (
-        <Avatar size="sm" src={senderAvatar} name={senderName} />
+      {startsRun ? (
+        <Avatar size="sm" src={senderAvatar ?? undefined} name={senderName} />
       ) : (
-        <Avatar size="sm" name={senderName} />
+        <div className="w-8 shrink-0" aria-hidden />
       )}
       <div className="flex max-w-[80%] flex-col items-start gap-1">
-        <span className="text-xs font-medium text-foreground-muted">
-          {senderName}
-        </span>
+        {startsRun && (
+          <span className="text-xs font-medium text-foreground-muted">{senderName}</span>
+        )}
         <div className="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-secondary px-4 py-2.5 text-sm text-foreground">
           {message.content}
         </div>
+        {time && <span className="text-[11px] text-foreground-subtle">{time}</span>}
       </div>
     </div>
   );
