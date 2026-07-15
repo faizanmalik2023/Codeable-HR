@@ -23,6 +23,7 @@ export const qk = {
 
   attendance: {
     logs: (month: number, year: number) => ["attendance", "logs", month, year] as const,
+    today: ["attendance", "today"] as const,
   },
 
   insuranceClaims: (status: string, page: number) => ["insurance-claims", status, page] as const,

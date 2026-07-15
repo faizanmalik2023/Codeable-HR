@@ -319,6 +319,24 @@ export interface AttendanceMonthModel {
   items: AttendanceDay[];
 }
 
+/** One work segment on the live `GET /attendance/today` record — ISO timestamps;
+ *  `out` is null while the segment is still open (the user is currently clocked in). */
+export interface AttendanceTodaySession {
+  in: string;
+  out: string | null;
+}
+
+/** `GET /attendance/today` — the self-service live day record that drives the
+ *  dashboard work timer + session list. Distinct from the month `AttendanceDay`. */
+export interface AttendanceToday {
+  date: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  hours_worked: GlanceHours;
+  status: CheckInStatus;
+  sessions: AttendanceTodaySession[];
+}
+
 /* ------------------------------------------------------------------ */
 /* Claims                                                              */
 /* ------------------------------------------------------------------ */

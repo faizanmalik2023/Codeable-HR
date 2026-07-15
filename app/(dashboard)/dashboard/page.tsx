@@ -36,8 +36,23 @@ import { formatOrdinalDate, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CHECK_IN_LABELS } from "@/lib/enums";
 import { hasRole } from "@/stores/auth-store";
+import { TodayWorkCard } from "@/components/dashboard/today-work-card";
 import { useDashboard } from "./use-dashboard";
 import type { ActivityItemModel } from "@/types";
+
+/* A warmer, daypart-aware greeting that rotates by day so it doesn't read the same
+ * every login. Seeded off the server's date + greeting (not the client clock) so it
+ * renders identically on server and client — no hydration flicker. */
+function creativeGreeting(base: string, firstName: string, seed: string): string {
+  const key = (base ?? "").toLowerCase();
+  const morning = [`Good morning, ${firstName}`, `Morning, ${firstName} ☀️`, `Rise and shine, ${firstName}`];
+  const afternoon = [`Good afternoon, ${firstName}`, `Afternoon, ${firstName}`, `Keep it rolling, ${firstName}`];
+  const evening = [`Good evening, ${firstName}`, `Evening, ${firstName} 🌙`, `Winding down, ${firstName}?`];
+  const set = key.includes("morning") ? morning : key.includes("afternoon") ? afternoon : evening;
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return set[h % set.length];
+}
 
 /* Activity type → icon + tone mapping. */
 function activityVisual(type: string): { icon: typeof FileText; className: string } {
@@ -68,11 +83,13 @@ export default function DashboardPage() {
 
   const glance = data.at_a_glance;
   const firstName = (user?.full_name ?? "").split(" ")[0] || "there";
+  const greeting = creativeGreeting(data.greeting, firstName, data.current_date ?? data.greeting ?? "");
 
   // The EOD quick-action mirrors today's EOD state so it never invites a duplicate
   // submission. Pending → submit (blank form); already submitted but awaiting review
   // → update (backend allows editing a pending EOD); reviewed → view only (backend
-  // rejects re-submitting a reviewed EOD).
+  // rejects re-submitting a reviewed EOD). It only earns the primary highlight while
+  // an EOD is actually pending — otherwise it sits quietly with the other actions.
   const eodAction = data.eod_pending
     ? { title: "Submit EOD", description: "Log your day", href: "/eod-reports/submit" }
     : data.eod_status === "pending"
@@ -147,9 +164,7 @@ export default function DashboardPage() {
         />
         <div className="relative flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-heading text-2xl font-bold md:text-3xl">
-              {data.greeting || `Welcome back, ${firstName}`}
-            </h1>
+            <h1 className="font-heading text-2xl font-bold md:text-3xl">{greeting}</h1>
             {data.current_date && (
               <p className="mt-1 text-sm text-white/70">{formatOrdinalDate(data.current_date)}</p>
             )}
@@ -168,14 +183,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {isHrPlus ? (
           <>
-            <QuickActionCard title="People" description="Browse employees" icon={Users} variant="primary" onClick={() => router.push("/people")} />
+            <QuickActionCard title="People" description="Browse employees" icon={Users} onClick={() => router.push("/people")} />
             <QuickActionCard title="Leave Requests" description="Review & approve" icon={UserCheck} onClick={() => router.push("/hr/leaves")} />
             <QuickActionCard title="Attendance" description="Company logs" icon={Clock} onClick={() => router.push("/hr/time")} />
             <QuickActionCard title="Departments" description="Manage org" icon={Building2} onClick={() => router.push("/departments")} />
           </>
         ) : (
           <>
-            <QuickActionCard title={eodAction.title} description={eodAction.description} icon={FileText} variant="primary" onClick={() => router.push(eodAction.href)} />
+            <QuickActionCard title={eodAction.title} description={eodAction.description} icon={FileText} variant={data.eod_pending ? "primary" : undefined} onClick={() => router.push(eodAction.href)} />
             <QuickActionCard title="Apply Leave" description="Request time off" icon={CalendarPlus} onClick={() => router.push("/leaves/apply")} />
             <QuickActionCard title="View Salary" description="Slips & breakdown" icon={Wallet} onClick={() => router.push("/salary-details")} />
             <QuickActionCard title="Attendance" description="View your logs" icon={Clock} onClick={() => router.push("/time")} />
@@ -187,25 +202,29 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Payroll banner (HR/Admin) */}
+      {/* Live work timer + today's sessions — only for roles that clock in. */}
+      {!isHrPlus && <TodayWorkCard />}
+
+      {/* Payroll entry (HR/Admin). Kept calm by default — a neutral card with a
+          contained CTA rather than an always-on blue slab, so it doesn't manufacture
+          daily urgency for a once-a-month action. Follow-up: promote to a prominent
+          state only when the current month's payroll is still unreleased (needs a
+          `payroll_pending` signal from the dashboard API). */}
       {isHrPlus && (
         <Link href="/hr/payroll" className="block">
-          <Card
-            hover
-            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 bg-primary p-5 text-primary-foreground"
-          >
+          <Card hover className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 p-5">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-muted text-primary">
                 <Wallet className="h-5 w-5" />
               </span>
               <div>
-                <p className="font-semibold leading-tight">Payroll</p>
-                <p className="text-sm text-primary-foreground/80">
+                <p className="font-semibold leading-tight text-foreground">Payroll</p>
+                <p className="text-sm text-foreground-muted">
                   Generate and release this month&apos;s payslips.
                 </p>
               </div>
             </div>
-            <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/15 px-4 py-2 text-sm font-medium">
+            <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
               Run payroll
               <ArrowRight className="h-4 w-4" />
             </span>
@@ -223,10 +242,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* At a glance */}
+      {/* At a glance — hours worked now lives in the live work card above. */}
       {glance && !data.org_stats && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-          <StatusCard title="Hours worked" value={`${glance.total_hours_worked?.hours ?? 0}h ${glance.total_hours_worked?.minutes ?? 0}m`} icon={Clock} variant="primary" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <StatusCard title="Next salary" value={glance.next_salary?.date ? formatOrdinalDate(glance.next_salary.date) : "—"} icon={Wallet} variant="accent" />
           <StatusCard title="Next holiday" value={glance.next_holiday?.date ? formatOrdinalDate(glance.next_holiday.date) : "—"} icon={Palmtree} variant="warning" />
         </div>
