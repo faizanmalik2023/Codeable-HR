@@ -69,6 +69,18 @@ export default function DashboardPage() {
   const glance = data.at_a_glance;
   const firstName = (user?.full_name ?? "").split(" ")[0] || "there";
 
+  // The EOD quick-action mirrors today's EOD state so it never invites a duplicate
+  // submission. Pending → submit (blank form); already submitted but awaiting review
+  // → update (backend allows editing a pending EOD); reviewed → view only (backend
+  // rejects re-submitting a reviewed EOD).
+  const eodAction = data.eod_pending
+    ? { title: "Submit EOD", description: "Log your day", href: "/eod-reports/submit" }
+    : data.eod_status === "pending"
+      ? { title: "Update EOD", description: "Edit today's report", href: "/eod-reports" }
+      : data.eod_status === "submitted"
+        ? { title: "View EOD", description: "Reviewed by manager", href: "/eod-reports" }
+        : { title: "Submit EOD", description: "Log your day", href: "/eod-reports/submit" };
+
   return (
     <div className="space-y-6">
       {/* EOD status banner — reflects the actual state of today's EOD */}
@@ -163,7 +175,7 @@ export default function DashboardPage() {
           </>
         ) : (
           <>
-            <QuickActionCard title="Submit EOD" description="Log your day" icon={FileText} variant="primary" onClick={() => router.push("/eod-reports/submit")} />
+            <QuickActionCard title={eodAction.title} description={eodAction.description} icon={FileText} variant="primary" onClick={() => router.push(eodAction.href)} />
             <QuickActionCard title="Apply Leave" description="Request time off" icon={CalendarPlus} onClick={() => router.push("/leaves/apply")} />
             <QuickActionCard title="View Salary" description="Slips & breakdown" icon={Wallet} onClick={() => router.push("/salary-details")} />
             <QuickActionCard title="Attendance" description="View your logs" icon={Clock} onClick={() => router.push("/time")} />
