@@ -26,6 +26,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CodeableHR - Your Team, Simplified",
   description: "A modern, friendly HR platform built for software teams",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-96x96.png", type: "image/png", sizes: "96x96" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png" }],
+    shortcut: [{ url: "/favicon.ico" }],
+  },
 };
 
 export default function RootLayout({

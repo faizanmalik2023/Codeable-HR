@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn, getInitials } from "@/lib/utils";
+import { secureUrl } from "@/lib/secure-url";
 
 interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   src?: string;
@@ -39,6 +40,7 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
     const [imageError, setImageError] = React.useState(false);
 
     const initials = name ? getInitials(name) : "?";
+    const resolvedSrc = secureUrl(src);
 
     return (
       <div
@@ -50,9 +52,9 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
         )}
         {...props}
       >
-        {src && !imageError ? (
+        {resolvedSrc && !imageError ? (
           <img
-            src={src}
+            src={resolvedSrc}
             alt={alt || name || "Avatar"}
             className="h-full w-full object-cover"
             onError={() => setImageError(true)}

@@ -165,7 +165,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         <Link href="/dashboard" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/codeable-emblem-white.svg" alt="Codeable" className="h-4 w-auto" />
+            <img src="/logo-white.svg" alt="Codeable" className="h-4 w-auto" />
           </div>
           <AnimatePresence>
             {!isCollapsed && (

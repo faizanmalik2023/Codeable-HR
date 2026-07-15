@@ -26,7 +26,7 @@ export default function LoginPage() {
       {/* Faint rotated emblem watermark (mobile BackgroundDecor motif) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/codeable-emblem.svg"
+        src="/logo-blue.svg"
         alt=""
         aria-hidden
         className="pointer-events-none absolute -right-24 -top-16 w-[42rem] max-w-none rotate-12 opacity-[0.04] dark:opacity-[0.06] dark:brightness-0 dark:invert"
@@ -43,7 +43,7 @@ export default function LoginPage() {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/codeable-emblem.svg"
+                src="/logo-blue.svg"
                 alt="Codeable"
                 className="h-12 w-auto dark:brightness-0 dark:invert"
               />

@@ -98,7 +98,7 @@ export default function DashboardPage() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/codeable-emblem-white.svg"
+          src="/logo-white.svg"
           alt=""
           aria-hidden
           className="pointer-events-none absolute -right-6 -top-6 w-56 max-w-none rotate-12 opacity-[0.12]"
