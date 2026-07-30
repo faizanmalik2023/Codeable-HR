@@ -7,11 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmModal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/shared/page-header";
 import { ErrorState } from "@/components/ui/empty-state";
+import {
+  ComposerHint,
+  ComposerShell,
+  DayDivider,
+  TypingIndicator,
+  groupByDate,
+  showsTime,
+  startsRun,
+} from "@/components/chat/thread";
 import { useEnums, toOptions } from "@/lib/api/enums";
 import {
   IssueStatusEnum,
@@ -19,14 +27,15 @@ import {
   ISSUE_CATEGORY_LABELS,
 } from "@/lib/enums";
 import { formatOrdinalDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, formatTime } from "@/lib/utils";
 import type { EmployeeRef, IssueMessage, IssueModel } from "@/types";
 import { useHrIssueThread } from "./use-hr-issue-thread";
 
 export default function HrIssueThreadPage() {
   const params = useParams();
   const id = String(params.id);
-  const { query, issue, send, retry, resolve } = useHrIssueThread(id);
+  const { query, issue, send, retry, resolve, notifyTyping, peerTyping } =
+    useHrIssueThread(id);
 
   if (query.isLoading && !issue) {
     return (
@@ -61,6 +70,8 @@ export default function HrIssueThreadPage() {
       onRetry={retry}
       onResolve={() => resolve.mutate()}
       resolving={resolve.isPending}
+      onTyping={notifyTyping}
+      peerTyping={peerTyping}
     />
   );
 }
@@ -71,12 +82,16 @@ function IssueThread({
   onRetry,
   onResolve,
   resolving,
+  onTyping,
+  peerTyping,
 }: {
   issue: IssueModel;
   onSend: (message: string) => void;
   onRetry: (message: IssueMessage) => void;
   onResolve: () => void;
   resolving: boolean;
+  onTyping: () => void;
+  peerTyping: boolean;
 }) {
   const enums = useEnums();
   const [draft, setDraft] = React.useState("");
@@ -92,9 +107,10 @@ function IssueThread({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   };
 
+  // The typing indicator counts as movement, otherwise it lands below the fold.
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages.length, peerTyping]);
 
   const categoryLabel = React.useMemo(() => {
     const opts = toOptions(enums.data?.ticket_category, ISSUE_CATEGORY_LABELS);
@@ -166,21 +182,25 @@ function IssueThread({
       {/* Thread */}
       <div className="space-y-4">
         {grouped.map((group) => (
-          <div key={group.label} className="space-y-4">
-            <div className="flex justify-center">
-              <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground-muted">
-                {group.label}
-              </span>
-            </div>
+          <div key={group.label} className="space-y-2.5">
+            <DayDivider label={group.label} />
             {group.messages.map((message, i) => (
               <MessageBubble
                 key={message.id ?? `${group.label}-${i}`}
                 message={message}
+                anonymous={Boolean(issue.is_anonymous)}
+                startsRun={startsRun(group.messages, i)}
+                showTime={showsTime(group.messages, i)}
                 onRetry={onRetry}
               />
             ))}
           </div>
         ))}
+        {peerTyping && (
+          <TypingIndicator
+            label={issue.is_anonymous ? "Anonymous is typing" : "The employee is typing"}
+          />
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -192,33 +212,48 @@ function IssueThread({
               This issue has been {issue.status}. Replies are closed.
             </p>
           ) : (
-            <div className="flex items-end gap-3">
-              <Textarea
-                ref={textareaRef}
-                value={draft}
-                onChange={(e) => {
-                  setDraft(e.target.value);
-                  autoGrow();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    handleSend();
+            <>
+              {/* The shared shell replaces the app's default Textarea here. That
+                  component lights a 2px accent ring on focus, and a thread's
+                  textarea holds focus for the whole session, so the ring was
+                  permanently on and read as an error state. It also put a circular
+                  button beside a rounded-rect field, mixing two radius systems in
+                  one control. */}
+              <ComposerShell>
+                <textarea
+                  ref={textareaRef}
+                  value={draft}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    autoGrow();
+                    onTyping();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder={
+                    issue.is_anonymous
+                      ? "Reply to this anonymous report…"
+                      : "Reply to the employee…"
                   }
-                }}
-                placeholder="Reply to the employee…"
-                rows={1}
-                className="max-h-40 min-h-[44px]"
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!draft.trim()}
-                size="icon"
-                aria-label="Send"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
+                  rows={1}
+                  className="max-h-40 min-h-[36px] flex-1 resize-none bg-transparent py-1.5 text-sm text-foreground placeholder:text-foreground-subtle focus:outline-none"
+                />
+                <Button
+                  onClick={handleSend}
+                  disabled={!draft.trim()}
+                  size="icon"
+                  className="shrink-0 rounded-full transition-transform duration-150 active:scale-90 disabled:opacity-40"
+                  aria-label="Send reply"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </ComposerShell>
+              <ComposerHint send="Cmd" />
+            </>
           )}
         </div>
       </div>
@@ -241,9 +276,15 @@ function IssueThread({
 
 function MessageBubble({
   message,
+  anonymous,
+  startsRun,
+  showTime,
   onRetry,
 }: {
   message: IssueMessage;
+  anonymous: boolean;
+  startsRun: boolean;
+  showTime: boolean;
   onRetry: (message: IssueMessage) => void;
 }) {
   if (message.sender === "system") {
@@ -260,6 +301,7 @@ function MessageBubble({
   const own = message.sender === "hr";
   const sending = message.delivery === "sending";
   const failed = message.delivery === "failed";
+  const ownTime = message.timestamp ? formatTime(message.timestamp) : null;
 
   if (own) {
     return (
@@ -267,46 +309,63 @@ function MessageBubble({
         <div
           className={cn(
             "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-primary px-4 py-2.5 text-sm text-primary-foreground",
+            "animate-message-in transition-opacity duration-200",
             sending && "opacity-60"
           )}
         >
           {message.content}
         </div>
-        {sending && (
-          <span className="flex items-center gap-1 text-xs text-foreground-subtle">
+        {sending ? (
+          <span className="flex items-center gap-1 text-[11px] text-foreground-subtle">
             <Clock className="h-3 w-3" /> Sending…
           </span>
-        )}
-        {failed && (
+        ) : failed ? (
           <button
             type="button"
             onClick={() => onRetry(message)}
-            className="text-xs font-medium text-destructive hover:underline"
+            className="text-[11px] font-medium text-destructive hover:underline"
           >
-            Not sent · Tap to retry
+            Not sent. Tap to retry
           </button>
-        )}
+        ) : showTime && ownTime ? (
+          <span className="text-[11px] text-foreground-subtle">{ownTime}</span>
+        ) : null}
       </div>
     );
   }
 
-  // Employee message
-  const senderName = message.sender_employee?.full_name ?? "Employee";
-  const senderAvatar = message.sender_employee?.avatar;
+  // Employee message. On an anonymous ticket the server already strips
+  // sender_employee, so there is no name to render — but falling back to
+  // "Employee" plus an initials avatar still drew a person-shaped identity and
+  // invited HR to wonder who it was. An anonymous report gets no name, no
+  // initials and no photo: a masked glyph, and the word Anonymous.
+  const senderName = anonymous ? "Anonymous" : message.sender_employee?.full_name ?? "Employee";
+  const senderAvatar = anonymous ? null : message.sender_employee?.avatar;
+  const time = message.timestamp ? formatTime(message.timestamp) : null;
   return (
     <div className="flex items-start gap-2.5">
-      {senderAvatar ? (
-        <Avatar size="sm" src={senderAvatar} name={senderName} />
+      {!startsRun ? (
+        <div className="w-8 shrink-0" aria-hidden />
+      ) : anonymous ? (
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground-subtle"
+          aria-hidden
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+        </span>
       ) : (
-        <Avatar size="sm" name={senderName} />
+        <Avatar size="sm" src={senderAvatar ?? undefined} name={senderName} />
       )}
       <div className="flex max-w-[80%] flex-col items-start gap-1">
-        <span className="text-xs font-medium text-foreground-muted">
-          {senderName}
-        </span>
-        <div className="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-secondary px-4 py-2.5 text-sm text-foreground">
+        {startsRun && (
+          <span className="text-xs font-medium text-foreground-muted">{senderName}</span>
+        )}
+        <div className="animate-message-in whitespace-pre-wrap rounded-2xl rounded-tl-md bg-secondary px-4 py-2.5 text-sm text-foreground">
           {message.content}
         </div>
+        {showTime && time && (
+          <span className="text-[11px] text-foreground-subtle">{time}</span>
+        )}
       </div>
     </div>
   );
@@ -320,29 +379,5 @@ function assignedName(assigned: EmployeeRef | string | undefined): string | null
   return assigned.full_name ?? assigned.name ?? null;
 }
 
-function dateLabel(input: string | undefined): string {
-  if (!input) return "—";
-  const d = new Date(input);
-  if (Number.isNaN(d.getTime())) return "—";
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  const same = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
-  if (same(d, today)) return "Today";
-  if (same(d, yesterday)) return "Yesterday";
-  return formatOrdinalDate(d);
-}
-
-function groupByDate(messages: IssueMessage[]): { label: string; messages: IssueMessage[] }[] {
-  const groups: { label: string; messages: IssueMessage[] }[] = [];
-  for (const message of messages) {
-    const label = dateLabel(message.timestamp);
-    const last = groups[groups.length - 1];
-    if (last && last.label === label) last.messages.push(message);
-    else groups.push({ label, messages: [message] });
-  }
-  return groups;
-}
+// dateLabel / groupByDate / the run-grouping rules now live in
+// components/chat/thread so both threads stay in step.

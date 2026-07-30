@@ -24,4 +24,11 @@ export const hrHelpApi = {
   /** Change lifecycle status (e.g. `"resolved"`). */
   setStatus: (id: string, status: string) =>
     api.patch<IssueModel>(`/tickets/${id}/status`, { status }),
+
+  /**
+   * Tell the employee we're typing. Same endpoint as the employee side — the
+   * server decides the sender type from who's authenticated, so HR pinging here
+   * surfaces as `sender: "hr"` on their screen.
+   */
+  typing: (id: string) => api.post<{ ok: boolean }>(`/tickets/${id}/typing`, {}),
 };

@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { Clock, Send, MessagesSquare, AlertCircle } from "lucide-react";
+import {
+  Clock,
+  Send,
+  MessagesSquare,
+  AlertCircle,
+  ShieldCheck,
+  EyeOff,
+  Lock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +18,15 @@ import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { ErrorState } from "@/components/ui/empty-state";
+import {
+  ComposerHint,
+  ComposerShell,
+  DayDivider,
+  TypingIndicator,
+  groupByDate,
+  showsTime,
+  startsRun,
+} from "@/components/chat/thread";
 import { useEnums, toOptions } from "@/lib/api/enums";
 import {
   IssueStatusEnum,
@@ -24,7 +41,7 @@ import { useIssueThread } from "./use-issue-thread";
 export default function IssueThreadPage() {
   const params = useParams();
   const id = String(params.id);
-  const { query, issue, send, retry } = useIssueThread(id);
+  const { query, issue, send, retry, notifyTyping, peerTyping } = useIssueThread(id);
 
   if (query.isLoading && !issue) {
     return (
@@ -52,17 +69,29 @@ export default function IssueThreadPage() {
     );
   }
 
-  return <IssueThread issue={issue} onSend={send} onRetry={retry} />;
+  return (
+    <IssueThread
+      issue={issue}
+      onSend={send}
+      onRetry={retry}
+      onTyping={notifyTyping}
+      peerTyping={peerTyping}
+    />
+  );
 }
 
 function IssueThread({
   issue,
   onSend,
   onRetry,
+  onTyping,
+  peerTyping,
 }: {
   issue: IssueModel;
   onSend: (message: string) => void;
   onRetry: (message: IssueMessage) => void;
+  onTyping: () => void;
+  peerTyping: boolean;
 }) {
   const enums = useEnums();
   const [draft, setDraft] = React.useState("");
@@ -77,9 +106,11 @@ function IssueThread({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   };
 
+  // Follow the conversation — the typing indicator counts, otherwise it appears
+  // below the fold exactly when it matters.
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages.length, peerTyping]);
 
   const categoryLabel = React.useMemo(() => {
     const opts = toOptions(enums.data?.ticket_category, ISSUE_CATEGORY_LABELS);
@@ -132,6 +163,8 @@ function IssueThread({
         )}
       </Card>
 
+      <PrivacyNotice anonymous={Boolean(issue.is_anonymous)} />
+
       {/* Thread */}
       <div className="space-y-4">
         {messages.length === 0 ? (
@@ -147,27 +180,23 @@ function IssueThread({
         ) : (
           grouped.map((group) => (
             <div key={group.label} className="space-y-2.5">
-              <div className="flex justify-center">
-                <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-foreground-muted">
-                  {group.label}
-                </span>
-              </div>
-              {group.messages.map((message, i) => {
-                const prev = group.messages[i - 1];
-                // Group consecutive messages from the same sender — the avatar and
-                // name only lead the first message of each run.
-                const startsRun = !prev || prev.sender !== message.sender;
-                return (
-                  <MessageBubble
-                    key={message.id ?? `${group.label}-${i}`}
-                    message={message}
-                    startsRun={startsRun}
-                    onRetry={onRetry}
-                  />
-                );
-              })}
+              <DayDivider label={group.label} />
+              {group.messages.map((message, i) => (
+                <MessageBubble
+                  key={message.id ?? `${group.label}-${i}`}
+                  message={message}
+                  startsRun={startsRun(group.messages, i)}
+                  showTime={showsTime(group.messages, i)}
+                  onRetry={onRetry}
+                />
+              ))}
             </div>
           ))
+        )}
+        {peerTyping && (
+          <TypingIndicator
+            label={`${assignedName(issue.assigned_to) ?? "HR"} is typing`}
+          />
         )}
         <div ref={bottomRef} />
       </div>
@@ -178,17 +207,18 @@ function IssueThread({
           {locked ? (
             <p className="flex items-center justify-center gap-2 rounded-[var(--radius-lg)] bg-secondary/60 px-4 py-3 text-center text-sm text-foreground-muted">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              This issue has been {issue.status} — replies are closed.
+              This issue has been {issue.status}. Replies are closed.
             </p>
           ) : (
             <>
-              <div className="flex items-end gap-2 rounded-[var(--radius-lg)] border border-border bg-background-secondary py-1.5 pl-3 pr-1.5 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring">
+              <ComposerShell>
                 <textarea
                   ref={textareaRef}
                   value={draft}
                   onChange={(e) => {
                     setDraft(e.target.value);
                     autoGrow();
+                    onTyping();
                   }}
                   onKeyDown={(e) => {
                     // Enter sends; Shift+Enter (or Cmd/Ctrl+Enter) inserts a newline.
@@ -205,19 +235,13 @@ function IssueThread({
                   onClick={handleSend}
                   disabled={!draft.trim()}
                   size="icon"
-                  className="shrink-0 rounded-full"
+                  className="shrink-0 rounded-full transition-transform duration-150 active:scale-90 disabled:opacity-40"
                   aria-label="Send reply"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
-              </div>
-              <p className="mt-1.5 px-1 text-[11px] text-foreground-subtle">
-                <kbd className="rounded border border-border bg-secondary px-1 font-sans">Enter</kbd> to send
-                {" · "}
-                <kbd className="rounded border border-border bg-secondary px-1 font-sans">Shift</kbd>
-                {" + "}
-                <kbd className="rounded border border-border bg-secondary px-1 font-sans">Enter</kbd> for a new line
-              </p>
+              </ComposerShell>
+              <ComposerHint send="Enter" />
             </>
           )}
         </div>
@@ -226,13 +250,66 @@ function IssueThread({
   );
 }
 
+/**
+ * Standing reassurance about who can see this thread. An anonymous claimant has no
+ * way to verify the promise from the outside, and the old screen said nothing at
+ * all — so the thread stated the guarantee nowhere and the natural move was to test
+ * it by asking HR directly. This states it plainly, next to the messages.
+ *
+ * Every claim here is enforced server-side in ticketService: `formatMessage` nulls
+ * `sender_employee` on the claimant's messages for any privileged viewer of an
+ * anonymous ticket, and typing events deliberately carry no name.
+ */
+function PrivacyNotice({ anonymous }: { anonymous: boolean }) {
+  if (anonymous) {
+    return (
+      <div className="flex items-start gap-3 rounded-[var(--radius-lg)] border border-success/25 bg-success/5 p-4">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+          <EyeOff className="h-4 w-4" />
+        </span>
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            You&apos;re anonymous here
+            <ShieldCheck className="h-3.5 w-3.5 text-success" />
+          </p>
+          <ul className="space-y-1 text-xs leading-relaxed text-foreground-muted">
+            <li>HR sees your messages, never your name, photo, or employee ID.</li>
+            <li>Your name is stripped on the server, not just hidden in this app.</li>
+            <li>Even &ldquo;typing&rdquo; reaches them with no name attached.</li>
+          </ul>
+          <p className="pt-0.5 text-xs text-foreground-subtle">
+            Replies arrive here, never by email to your team.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-3 rounded-[var(--radius-lg)] border border-border bg-secondary/25 p-4">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-muted text-primary">
+        <Lock className="h-4 w-4" />
+      </span>
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-foreground">This is a private thread</p>
+        <p className="text-xs leading-relaxed text-foreground-muted">
+          Only you and the HR team can open it, not your manager and not your
+          teammates. You raised this one under your own name.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   startsRun,
+  showTime,
   onRetry,
 }: {
   message: IssueMessage;
   startsRun: boolean;
+  showTime: boolean;
   onRetry: (message: IssueMessage) => void;
 }) {
   if (message.sender === "system") {
@@ -256,6 +333,7 @@ function MessageBubble({
         <div
           className={cn(
             "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-primary px-4 py-2.5 text-sm text-primary-foreground",
+            "animate-message-in transition-opacity duration-200",
             sending && "opacity-60"
           )}
         >
@@ -271,9 +349,9 @@ function MessageBubble({
             onClick={() => onRetry(message)}
             className="text-[11px] font-medium text-destructive hover:underline"
           >
-            Not sent · Tap to retry
+            Not sent. Tap to retry
           </button>
-        ) : time ? (
+        ) : showTime && time ? (
           <span className="text-[11px] text-foreground-subtle">{time}</span>
         ) : null}
       </div>
@@ -294,10 +372,12 @@ function MessageBubble({
         {startsRun && (
           <span className="text-xs font-medium text-foreground-muted">{senderName}</span>
         )}
-        <div className="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-secondary px-4 py-2.5 text-sm text-foreground">
+        <div className="animate-message-in whitespace-pre-wrap rounded-2xl rounded-tl-md bg-secondary px-4 py-2.5 text-sm text-foreground">
           {message.content}
         </div>
-        {time && <span className="text-[11px] text-foreground-subtle">{time}</span>}
+        {showTime && time && (
+          <span className="text-[11px] text-foreground-subtle">{time}</span>
+        )}
       </div>
     </div>
   );
@@ -311,29 +391,5 @@ function assignedName(assigned: EmployeeRef | string | undefined): string | null
   return assigned.full_name ?? assigned.name ?? null;
 }
 
-function dateLabel(input: string | undefined): string {
-  if (!input) return "—";
-  const d = new Date(input);
-  if (Number.isNaN(d.getTime())) return "—";
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  const same = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
-  if (same(d, today)) return "Today";
-  if (same(d, yesterday)) return "Yesterday";
-  return formatOrdinalDate(d);
-}
-
-function groupByDate(messages: IssueMessage[]): { label: string; messages: IssueMessage[] }[] {
-  const groups: { label: string; messages: IssueMessage[] }[] = [];
-  for (const message of messages) {
-    const label = dateLabel(message.timestamp);
-    const last = groups[groups.length - 1];
-    if (last && last.label === label) last.messages.push(message);
-    else groups.push({ label, messages: [message] });
-  }
-  return groups;
-}
+// sameMinute / dateLabel / groupByDate and the run-grouping rules now live in
+// components/chat/thread so both threads stay in step.
