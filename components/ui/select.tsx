@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,9 @@ interface SelectProps {
   className?: string;
 }
 
+/** Above this many options, scrolling the list is slower than typing — show a filter. */
+const SEARCH_THRESHOLD = 8;
+
 export function Select({
   value,
   onChange,
@@ -34,10 +37,24 @@ export function Select({
 }: SelectProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [highlightedIndex, setHighlightedIndex] = React.useState(-1);
+  const [query, setQuery] = React.useState("");
   const containerRef = React.useRef<HTMLDivElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
+  const searchable = options.length > SEARCH_THRESHOLD;
+
+  // Everything below indexes `visible`, never `options` — otherwise arrow keys and
+  // Enter would act on rows the filter has hidden.
+  const visible = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (o) =>
+        o.label.toLowerCase().includes(q) || (o.description ?? "").toLowerCase().includes(q)
+    );
+  }, [options, query]);
 
   // Close on outside click
   React.useEffect(() => {
@@ -50,44 +67,54 @@ export function Select({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (disabled) return;
+  // Each open starts clean: no stale filter, nothing pre-highlighted.
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setQuery("");
+    setHighlightedIndex(-1);
+    if (searchable) searchRef.current?.focus();
+  }, [isOpen, searchable]);
 
+  const commit = (index: number) => {
+    const option = visible[index];
+    if (!option) return;
+    onChange?.(option.value);
+    setIsOpen(false);
+  };
+
+  // Shared by the trigger and the search box, so arrows/Enter keep working once
+  // focus moves into the filter input.
+  const handleNavKeys = (e: React.KeyboardEvent) => {
+    if (disabled) return false;
     switch (e.key) {
       case "Enter":
-      case " ":
         e.preventDefault();
-        if (isOpen && highlightedIndex >= 0) {
-          onChange?.(options[highlightedIndex].value);
-          setIsOpen(false);
-        } else {
-          setIsOpen(!isOpen);
-        }
-        break;
+        if (isOpen && highlightedIndex >= 0) commit(highlightedIndex);
+        else setIsOpen(!isOpen);
+        return true;
       case "ArrowDown":
         e.preventDefault();
-        if (!isOpen) {
-          setIsOpen(true);
-        } else {
-          setHighlightedIndex((prev) =>
-            prev < options.length - 1 ? prev + 1 : 0
-          );
-        }
-        break;
+        if (!isOpen) setIsOpen(true);
+        else setHighlightedIndex((prev) => (prev < visible.length - 1 ? prev + 1 : 0));
+        return true;
       case "ArrowUp":
         e.preventDefault();
-        if (!isOpen) {
-          setIsOpen(true);
-        } else {
-          setHighlightedIndex((prev) =>
-            prev > 0 ? prev - 1 : options.length - 1
-          );
-        }
-        break;
+        if (!isOpen) setIsOpen(true);
+        else setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : visible.length - 1));
+        return true;
       case "Escape":
         setIsOpen(false);
-        break;
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (handleNavKeys(e)) return;
+    if (e.key === " ") {
+      e.preventDefault();
+      setIsOpen(!isOpen);
     }
   };
 
@@ -109,7 +136,7 @@ export function Select({
           error && "ring-2 ring-destructive"
         )}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        onKeyDown={handleKeyDown}
+        onKeyDown={handleTriggerKeyDown}
         disabled={disabled}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
@@ -135,14 +162,29 @@ export function Select({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 mt-2 w-full"
+            className="absolute z-50 mt-2 w-full rounded-xl border border-border bg-card p-1.5 shadow-lg"
           >
-            <ul
-              ref={listRef}
-              className="max-h-60 overflow-auto rounded-xl border border-border bg-card p-1.5 shadow-lg"
-              role="listbox"
-            >
-              {options.map((option, index) => (
+            {searchable && (
+              <div className="relative mb-1.5">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-muted" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setHighlightedIndex(-1);
+                  }}
+                  onKeyDown={handleNavKeys}
+                  placeholder="Search…"
+                  aria-label="Search options"
+                  className="h-9 w-full rounded-lg bg-background-secondary pl-9 pr-3 text-sm text-foreground placeholder:text-foreground-subtle focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            )}
+
+            <ul ref={listRef} className="max-h-60 overflow-auto" role="listbox">
+              {visible.map((option, index) => (
                 <li
                   key={option.value}
                   className={cn(
@@ -151,10 +193,7 @@ export function Select({
                     highlightedIndex === index && "bg-secondary",
                     value === option.value && "bg-primary-muted"
                   )}
-                  onClick={() => {
-                    onChange?.(option.value);
-                    setIsOpen(false);
-                  }}
+                  onClick={() => commit(index)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   role="option"
                   aria-selected={value === option.value}
@@ -177,6 +216,9 @@ export function Select({
                   )}
                 </li>
               ))}
+              {!visible.length && (
+                <li className="px-3 py-2.5 text-sm text-foreground-muted">No matches</li>
+              )}
             </ul>
           </motion.div>
         )}

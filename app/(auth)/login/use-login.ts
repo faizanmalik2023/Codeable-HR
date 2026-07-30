@@ -8,7 +8,7 @@ import { authApi } from "@/lib/api/auth";
 import { useAuthStore, landingForRole } from "@/stores/auth-store";
 import { ApiRequestError } from "@/lib/api/client";
 
-/** Login page hook — Google + email/password, both wire to the real backend. */
+/** Login page hook — Google is the only sign-in route (Codeable accounts only). */
 export function useLogin() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
@@ -27,16 +27,9 @@ export function useLogin() {
     onError: (e) => toast.error(e instanceof ApiRequestError ? e.message : "Google sign-in failed"),
   });
 
-  const password = useMutation({
-    mutationFn: ({ email, pwd }: { email: string; pwd: string }) => authApi.login(email, pwd),
-    onSuccess,
-    onError: (e) => toast.error(e instanceof ApiRequestError ? e.message : "Sign-in failed"),
-  });
-
   return {
     signInWithGoogle: (idToken: string) => google.mutate(idToken),
-    signInWithPassword: (email: string, pwd: string) => password.mutate({ email, pwd }),
-    isPending: google.isPending || password.isPending,
-    error: (google.error ?? password.error) as unknown,
+    isPending: google.isPending,
+    error: google.error as unknown,
   };
 }
