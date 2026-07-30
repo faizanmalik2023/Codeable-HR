@@ -40,6 +40,12 @@ export interface TreasuryOverview {
   total_income: number;
   total_expenses: number;
   net_profit_to_date: number;
+  /**
+   * Net profit as a percentage of revenue (48.1, not 0.481) — the finance sheet's
+   * "Net Profit Margin %". Computed after payroll, so it matches the sheet rather
+   * than flattering it. `null` when nothing has been billed yet.
+   */
+  net_profit_margin: number | null;
   total_disbursed: number;
   total_payroll: number;
   loans_outstanding: number;
@@ -62,6 +68,10 @@ export interface CashFlowPoint {
   month: string;
   income: number;
   expenses: number;
+  /** Income − expenses − payroll. `profit` (not typed here) is the pre-payroll figure. */
+  net_profit: number;
+  /** `net_profit` as a % of that month's income; null when the month billed nothing. */
+  profit_margin: number | null;
   net_change: number;
   running_balance: number;
 }
@@ -81,9 +91,14 @@ export interface FinanceReport {
   profit_and_loss: {
     income: number;
     expenses: number;
+    /** Income − expenses, BEFORE payroll. */
     net_profit: number;
     equity_distributed: number;
     payroll: number;
+    /** Income − expenses − payroll — the finance sheet's "Net Profit". */
+    net_profit_after_payroll: number;
+    /** `net_profit_after_payroll` as a % of income; null when income is 0. */
+    net_profit_margin: number | null;
     retained: number;
   };
   cash_flow: {

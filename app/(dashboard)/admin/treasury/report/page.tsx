@@ -14,6 +14,7 @@ import {
   ArrowLeftRight,
   Landmark,
   Coins,
+  Percent,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -64,8 +65,20 @@ export default function TreasuryReportPage() {
             <Section title="Profit & loss" icon={Scale}>
               <StatusCard title="Income" value={formatMoney(report.profit_and_loss.income)} icon={TrendingUp} variant="success" />
               <StatusCard title="Expenses" value={formatMoney(report.profit_and_loss.expenses)} icon={TrendingDown} variant="warning" />
-              <StatusCard title="Net profit" value={formatMoney(report.profit_and_loss.net_profit)} icon={Scale} variant="primary" />
+              <StatusCard title="Net profit" value={formatMoney(report.profit_and_loss.net_profit)} icon={Scale} variant="primary" subtitle="Before payroll" />
               <StatusCard title="Payroll" value={formatMoney(report.profit_and_loss.payroll)} icon={Wallet} variant="default" />
+              <StatusCard title="Net profit after payroll" value={formatMoney(report.profit_and_loss.net_profit_after_payroll)} icon={Scale} variant="primary" />
+              <StatusCard
+                title="Net profit margin"
+                value={
+                  report.profit_and_loss.net_profit_margin === null
+                    ? "—"
+                    : `${report.profit_and_loss.net_profit_margin}%`
+                }
+                subtitle="Of revenue, after payroll"
+                icon={Percent}
+                variant="success"
+              />
               <StatusCard title="Equity distributed" value={formatMoney(report.profit_and_loss.equity_distributed)} icon={PieChart} variant="accent" />
               <StatusCard title="Retained" value={formatMoney(report.profit_and_loss.retained)} icon={PiggyBank} variant="default" />
             </Section>

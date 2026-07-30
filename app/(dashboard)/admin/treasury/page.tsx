@@ -20,6 +20,7 @@ import {
   ScrollText,
   PieChart,
   BarChart3,
+  Percent,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -129,6 +130,17 @@ export default function TreasuryPage() {
               <StatusCard title="Total income" value={formatMoney(o.total_income, currency)} subtitle={inUsd(o.total_income)} icon={TrendingUp} variant="success" />
               <StatusCard title="Total expenses" value={formatMoney(o.total_expenses, currency)} subtitle={inUsd(o.total_expenses)} icon={TrendingDown} variant="warning" />
               <StatusCard title="Net profit to date" value={formatMoney(o.net_profit_to_date, currency)} subtitle={inUsd(o.net_profit_to_date)} icon={Scale} variant="primary" />
+              <StatusCard
+                title="Net profit margin"
+                // null means nothing has been billed yet — an em dash, not "0%", which
+                // would claim we earned revenue and kept none of it.
+                value={o.net_profit_margin === null ? "—" : `${o.net_profit_margin}%`}
+                subtitle="Of revenue, after payroll"
+                icon={Percent}
+                variant={
+                  o.net_profit_margin !== null && o.net_profit_margin < 0 ? "warning" : "success"
+                }
+              />
               <StatusCard title="Total disbursed" value={formatMoney(o.total_disbursed, currency)} subtitle={inUsd(o.total_disbursed)} icon={Receipt} variant="default" />
               <StatusCard title="Total payroll" value={formatMoney(o.total_payroll, currency)} subtitle={inUsd(o.total_payroll)} icon={Wallet} variant="default" />
               <StatusCard title="Loans outstanding" value={formatMoney(o.loans_outstanding, currency)} subtitle={inUsd(o.loans_outstanding)} icon={HandCoins} variant="accent" />
