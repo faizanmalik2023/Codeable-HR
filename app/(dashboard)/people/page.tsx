@@ -41,6 +41,9 @@ export default function PeoplePage() {
     setSearch,
     department,
     setDepartment,
+    showInactive,
+    setShowInactive,
+    inactiveCount,
   } = usePeople();
 
   return (
@@ -80,6 +83,15 @@ export default function PeoplePage() {
             onClick={() => setDepartment(d.name)}
           />
         ))}
+        {/* Only worth showing once someone has actually left. */}
+        {inactiveCount > 0 && (
+          <DeptChip
+            label={showInactive ? "Hide former employees" : "Show former employees"}
+            count={inactiveCount}
+            active={showInactive}
+            onClick={() => setShowInactive(!showInactive)}
+          />
+        )}
       </div>
 
       <QueryState

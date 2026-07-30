@@ -23,6 +23,10 @@ export interface DepartmentChip {
 export function usePeople() {
   const [search, setSearch] = React.useState("");
   const [department, setDepartment] = React.useState("all");
+  // People who have left are deactivated, never deleted — their payroll, attendance
+  // and EOD history has to survive. So the directory hides them by default rather
+  // than the records going away.
+  const [showInactive, setShowInactive] = React.useState(false);
 
   const query = useQuery({
     queryKey: peopleKeys.list,
@@ -35,7 +39,9 @@ export function usePeople() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const items: EmployeeListItem[] = query.data?.items ?? [];
+  const allItems: EmployeeListItem[] = query.data?.items ?? [];
+  const inactiveCount = allItems.filter((e) => e.status !== "active").length;
+  const items = showInactive ? allItems : allItems.filter((e) => e.status === "active");
 
   // Department chips: prefer the /departments list, else derive from rows.
   const departmentChips = React.useMemo<DepartmentChip[]>(() => {
@@ -81,5 +87,8 @@ export function usePeople() {
     setSearch,
     department,
     setDepartment,
+    showInactive,
+    setShowInactive,
+    inactiveCount,
   };
 }
