@@ -63,6 +63,12 @@ export default function TreasuryPage() {
   const data = overview.data;
   const currency = data?.currency ?? "PKR";
 
+  // Everything is entered and reported in PKR (that's how people are paid), so the
+  // dollar figure is a read-only convenience shown underneath — never an input.
+  const usdRate = data?.usd_to_pkr ?? 0;
+  const inUsd = (pkr: number | undefined) =>
+    usdRate > 0 && pkr !== undefined ? `≈ ${formatMoney(Math.round(pkr / usdRate), "USD")}` : undefined;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -97,6 +103,12 @@ export default function TreasuryPage() {
                   <p className="text-4xl font-bold tracking-tight text-foreground">
                     {formatMoney(o.current_balance, currency)}
                   </p>
+                  {inUsd(o.current_balance) && (
+                    <p className="text-sm text-foreground-muted">
+                      {inUsd(o.current_balance)}
+                      <span className="text-foreground-subtle"> at {usdRate} PKR/USD</span>
+                    </p>
+                  )}
                   <p className="text-xs text-foreground-subtle">
                     Opening {formatMoney(o.opening_balance, currency)}
                     {o.opening_date ? ` · as of ${formatOrdinalDate(o.opening_date)}` : ""}
@@ -114,13 +126,13 @@ export default function TreasuryPage() {
 
             {/* Breakdown grid */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <StatusCard title="Total income" value={formatMoney(o.total_income, currency)} icon={TrendingUp} variant="success" />
-              <StatusCard title="Total expenses" value={formatMoney(o.total_expenses, currency)} icon={TrendingDown} variant="warning" />
-              <StatusCard title="Net profit to date" value={formatMoney(o.net_profit_to_date, currency)} icon={Scale} variant="primary" />
-              <StatusCard title="Total disbursed" value={formatMoney(o.total_disbursed, currency)} icon={Receipt} variant="default" />
-              <StatusCard title="Total payroll" value={formatMoney(o.total_payroll, currency)} icon={Wallet} variant="default" />
-              <StatusCard title="Loans outstanding" value={formatMoney(o.loans_outstanding, currency)} icon={HandCoins} variant="accent" />
-              <StatusCard title="Adjustments net" value={formatMoney(o.adjustments_net, currency)} icon={SlidersHorizontal} variant="default" />
+              <StatusCard title="Total income" value={formatMoney(o.total_income, currency)} subtitle={inUsd(o.total_income)} icon={TrendingUp} variant="success" />
+              <StatusCard title="Total expenses" value={formatMoney(o.total_expenses, currency)} subtitle={inUsd(o.total_expenses)} icon={TrendingDown} variant="warning" />
+              <StatusCard title="Net profit to date" value={formatMoney(o.net_profit_to_date, currency)} subtitle={inUsd(o.net_profit_to_date)} icon={Scale} variant="primary" />
+              <StatusCard title="Total disbursed" value={formatMoney(o.total_disbursed, currency)} subtitle={inUsd(o.total_disbursed)} icon={Receipt} variant="default" />
+              <StatusCard title="Total payroll" value={formatMoney(o.total_payroll, currency)} subtitle={inUsd(o.total_payroll)} icon={Wallet} variant="default" />
+              <StatusCard title="Loans outstanding" value={formatMoney(o.loans_outstanding, currency)} subtitle={inUsd(o.loans_outstanding)} icon={HandCoins} variant="accent" />
+              <StatusCard title="Adjustments net" value={formatMoney(o.adjustments_net, currency)} subtitle={inUsd(o.adjustments_net)} icon={SlidersHorizontal} variant="default" />
             </div>
 
             {/* Cash-flow chart */}

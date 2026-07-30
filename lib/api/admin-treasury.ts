@@ -31,7 +31,10 @@ export const ADJUSTMENT_DIRECTION_FILTERS = ["all", "in", "out"] as const;
 
 /** `GET /admin/treasury` — the live treasury snapshot. */
 export interface TreasuryOverview {
+  /** Always PKR — every figure below is the PKR value, converted at entry time. */
   currency: ExpenseCurrency;
+  /** Rate to divide a PKR figure by for the dollar equivalent shown alongside it. */
+  usd_to_pkr?: number;
   opening_balance: number;
   opening_date?: string | null;
   total_income: number;
