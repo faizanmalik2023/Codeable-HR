@@ -87,6 +87,16 @@ export interface CashFlowPoint {
   net_profit: number;
   /** `net_profit` as a % of that month's income; null when the month billed nothing. */
   profit_margin: number | null;
+  /** Net salary released that month — the biggest cost, and its own line. */
+  payroll?: number;
+  /** Equity that left the bank (the cash leg only). */
+  payout?: number;
+  /** What beneficiaries were credited, however they took it. */
+  equity_allocated?: number;
+  loan_disbursed?: number;
+  loan_repaid?: number;
+  adjustments?: number;
+  custody_withdrawn?: number;
   net_change: number;
   running_balance: number;
 }

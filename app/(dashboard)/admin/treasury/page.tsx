@@ -37,7 +37,7 @@ import { SkeletonStats } from "@/components/ui/skeleton";
 import { StatusCard } from "@/components/shared/status-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { QueryState } from "@/components/shared/query-state";
-import { CURRENCY_SYMBOL, type ExpenseCurrency } from "@/lib/enums";
+import { type ExpenseCurrency } from "@/lib/enums";
 import { formatMoney, formatCompact, formatOrdinalDate, toWireDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useTreasury } from "./use-treasury";
@@ -289,10 +289,31 @@ function CashFlowChart({
   currency: ExpenseCurrency;
   isLoading: boolean;
 }) {
+  // Which month's breakdown is on show. Defaults to the most recent, so the panel
+  // is never empty before the first hover.
+  const [active, setActive] = React.useState<string | null>(null);
+  const shown = points.find((p) => p.month === active) ?? points[points.length - 1];
+
+  // Scale both series off the same maximum so the income and expense bars for a
+  // month are directly comparable by eye.
   const max = React.useMemo(
     () => Math.max(1, ...points.flatMap((p) => [p.income, p.expenses])),
     [points]
   );
+
+  type Row = { label: string; value: number; tone?: "good" | "bad" };
+  const rows: Row[] = shown
+    ? ([
+        { label: "Income", value: shown.income, tone: "good" },
+        { label: "Company expenses", value: -shown.expenses, tone: "bad" },
+        { label: "Payroll", value: -(shown.payroll ?? 0), tone: "bad" },
+        { label: "Equity paid out", value: -(shown.payout ?? 0), tone: "bad" },
+        { label: "Loans out", value: -(shown.loan_disbursed ?? 0), tone: "bad" },
+        { label: "Loan repayments", value: shown.loan_repaid ?? 0, tone: "good" },
+        { label: "Adjustments", value: shown.adjustments ?? 0 },
+        { label: "Custody withdrawn", value: -(shown.custody_withdrawn ?? 0), tone: "bad" },
+      ] as Row[]).filter((r) => r.value !== 0)
+    : [];
 
   return (
     <Card className="p-5">
@@ -316,18 +337,87 @@ function CashFlowChart({
           No cash-flow data yet.
         </p>
       ) : (
-        <div className="flex items-end gap-3 overflow-x-auto pb-2">
-          {points.map((p) => (
-            <div key={p.month} className="flex min-w-[48px] flex-1 flex-col items-center gap-2">
-              <div className="flex h-40 w-full items-end justify-center gap-1">
-                <Bar value={p.income} max={max} tone="income" currency={currency} />
-                <Bar value={p.expenses} max={max} tone="expenses" currency={currency} />
-              </div>
-              <span className="text-[11px] font-medium text-foreground-muted">
-                {formatMonth(p.month)}
-              </span>
+        <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
+          <div
+            className="flex items-end gap-3 overflow-x-auto pb-2"
+            onMouseLeave={() => setActive(null)}
+          >
+            {points.map((p) => {
+              const isShown = shown?.month === p.month;
+              return (
+                <button
+                  type="button"
+                  key={p.month}
+                  onMouseEnter={() => setActive(p.month)}
+                  onFocus={() => setActive(p.month)}
+                  onClick={() => setActive(p.month)}
+                  aria-label={`${formatMonth(p.month)}: income ${formatMoney(
+                    p.income,
+                    currency
+                  )}, expenses ${formatMoney(p.expenses, currency)}`}
+                  className={cn(
+                    "flex min-w-12 flex-1 cursor-pointer flex-col items-center gap-2 rounded-lg px-1 pt-2 transition-colors",
+                    isShown ? "bg-secondary/60" : "hover:bg-secondary/30"
+                  )}
+                >
+                  <span className="text-[10px] font-medium tabular-nums text-foreground-muted">
+                    {formatCompact(p.income)}
+                  </span>
+                  <div className="flex h-36 w-full items-end justify-center gap-1">
+                    <Bar value={p.income} max={max} tone="income" />
+                    <Bar value={p.expenses} max={max} tone="expenses" />
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[11px] font-medium",
+                      isShown ? "text-foreground" : "text-foreground-muted"
+                    )}
+                  >
+                    {formatMonth(p.month)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {shown && (
+            <div className="rounded-xl border border-border bg-secondary/30 p-4">
+              <p className="text-xs text-foreground-muted">
+                {formatMonth(shown.month)} · hover a month to compare
+              </p>
+              <p className="mt-1 text-2xl font-bold text-foreground">
+                {formatMoney(shown.net_profit, currency)}
+              </p>
+              <p className="text-xs text-foreground-subtle">
+                net profit
+                {shown.profit_margin !== null && ` · ${shown.profit_margin}% margin`}
+              </p>
+
+              <dl className="mt-4 space-y-1.5 border-t border-border pt-3 text-sm">
+                {rows.map((r) => (
+                  <div key={r.label} className="flex items-baseline justify-between gap-3">
+                    <dt className="text-foreground-muted">{r.label}</dt>
+                    <dd
+                      className={cn(
+                        "tabular-nums",
+                        r.tone === "good" && "text-success",
+                        r.tone === "bad" && "text-warning",
+                        !r.tone && "text-foreground"
+                      )}
+                    >
+                      {formatMoney(r.value, currency)}
+                    </dd>
+                  </div>
+                ))}
+                <div className="flex items-baseline justify-between gap-3 border-t border-border pt-2">
+                  <dt className="font-medium text-foreground">Balance after</dt>
+                  <dd className="font-medium tabular-nums text-foreground">
+                    {formatMoney(shown.running_balance, currency)}
+                  </dd>
+                </div>
+              </dl>
             </div>
-          ))}
+          )}
         </div>
       )}
     </Card>
@@ -338,14 +428,14 @@ function Bar({
   value,
   max,
   tone,
-  currency,
 }: {
   value: number;
   max: number;
   tone: "income" | "expenses";
-  currency: ExpenseCurrency;
 }) {
-  const pct = Math.max(2, Math.round((Math.abs(value) / max) * 100));
+  // Floor at 2% so a small-but-nonzero month is still visible, and 0 stays flat —
+  // a bar with no height reads as "no data", which is a different thing.
+  const pct = value === 0 ? 0 : Math.max(2, Math.round((Math.abs(value) / max) * 100));
   return (
     <div
       className={cn(
@@ -353,7 +443,6 @@ function Bar({
         tone === "income" ? "bg-success" : "bg-warning"
       )}
       style={{ height: `${pct}%` }}
-      title={`${CURRENCY_SYMBOL[currency]}${formatCompact(value)}`}
     />
   );
 }
