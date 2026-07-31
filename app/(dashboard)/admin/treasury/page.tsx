@@ -21,6 +21,9 @@ import {
   PieChart,
   BarChart3,
   Percent,
+  PiggyBank,
+  HeartHandshake,
+  ArrowUpNarrowWide,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -141,11 +144,65 @@ export default function TreasuryPage() {
                   o.net_profit_margin !== null && o.net_profit_margin < 0 ? "warning" : "success"
                 }
               />
-              <StatusCard title="Total disbursed" value={formatMoney(o.total_disbursed, currency)} subtitle={inUsd(o.total_disbursed)} icon={Receipt} variant="default" />
+              <StatusCard
+                title="Equity paid out"
+                value={formatMoney(o.total_disbursed, currency)}
+                // A holder who put their payout on a loan or left it in custody was
+                // still credited — showing only the cash figure would understate what
+                // the company actually distributed.
+                subtitle={
+                  (o.equity_allocated ?? o.total_disbursed) > o.total_disbursed
+                    ? `${formatMoney(o.equity_allocated ?? 0, currency)} allocated`
+                    : inUsd(o.total_disbursed)
+                }
+                icon={Receipt}
+                variant="default"
+              />
               <StatusCard title="Total payroll" value={formatMoney(o.total_payroll, currency)} subtitle={inUsd(o.total_payroll)} icon={Wallet} variant="default" />
               <StatusCard title="Loans outstanding" value={formatMoney(o.loans_outstanding, currency)} subtitle={inUsd(o.loans_outstanding)} icon={HandCoins} variant="accent" />
               <StatusCard title="Adjustments net" value={formatMoney(o.adjustments_net, currency)} subtitle={inUsd(o.adjustments_net)} icon={SlidersHorizontal} variant="default" />
             </div>
+
+            {/* What the balance actually belongs to. Custody money sits in the same
+                bank account but is owed back to the holders who left it there, so
+                spending against `current_balance` would be spending their money. */}
+            {(o.custody_held ?? 0) > 0 && (
+              <Card className="p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <PiggyBank className="h-4 w-4 text-foreground-muted" />
+                  <h2 className="font-semibold text-foreground">Held for the partners</h2>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-foreground-muted">In custody</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      {formatMoney(o.custody_held ?? 0, currency)}
+                    </p>
+                    <p className="text-xs text-foreground-subtle">
+                      Theirs — withdrawable at any time
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-foreground-muted">Settled against loans</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      {formatMoney(o.equity_applied_to_loans ?? 0, currency)}
+                    </p>
+                    <p className="text-xs text-foreground-subtle">
+                      Became company money
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-foreground-muted">Company&apos;s to spend</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatMoney(o.company_cash ?? o.current_balance, currency)}
+                    </p>
+                    <p className="text-xs text-foreground-subtle">
+                      Balance less what&apos;s held
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Cash-flow chart */}
             <CashFlowChart points={points} currency={currency} isLoading={overview.isLoading} />
@@ -162,6 +219,11 @@ export default function TreasuryPage() {
                 <ToolButton icon={CalendarClock} label="Periods" description="Close / reopen months" onClick={() => router.push("/admin/treasury/periods")} />
                 <ToolButton icon={ScrollText} label="Audit trail" description="Immutable log" onClick={() => router.push("/admin/treasury/audit")} />
                 <ToolButton icon={PieChart} label="Equity" description="Distributions" onClick={() => router.push("/admin/equity")} />
+                <ToolButton icon={Scale} label="Position & assets" description="Cash, pipeline, what we own" onClick={() => router.push("/admin/position")} />
+                <ToolButton icon={HandCoins} label="Loans" description="Who owes what" onClick={() => router.push("/admin/loans")} />
+                <ToolButton icon={HeartHandshake} label="Donations" description="Giving + who vouched" onClick={() => router.push("/admin/donations")} />
+                <ToolButton icon={Receipt} label="Recurring expenses" description="Office costs that repeat" onClick={() => router.push("/admin/expense-templates")} />
+                <ToolButton icon={ArrowUpNarrowWide} label="Increment cycle" description="March / September raises" onClick={() => router.push("/admin/increments")} />
               </div>
             </Card>
           </div>

@@ -46,11 +46,26 @@ export interface TreasuryOverview {
    * than flattering it. `null` when nothing has been billed yet.
    */
   net_profit_margin: number | null;
+  /** Equity that actually LEFT the bank. */
   total_disbursed: number;
+  /**
+   * Equity credited to beneficiaries however they took it — cash, a loan settlement,
+   * or left in custody. Always ≥ `total_disbursed`; the gap is the non-cash part.
+   */
+  equity_allocated?: number;
+  equity_applied_to_loans?: number;
+  equity_held_in_custody?: number;
   total_payroll: number;
   loans_outstanding: number;
   adjustments_net: number;
   current_balance: number;
+  /**
+   * Money the company holds FOR its partners — inside `current_balance` but not the
+   * company's to spend. `company_cash` is the balance net of it.
+   */
+  custody_held?: number;
+  custody_withdrawn?: number;
+  company_cash?: number;
   note?: string | null;
   updated_at?: string | null;
 }
