@@ -5,6 +5,7 @@
 import {
   Bell,
   CalendarCheck,
+  Clock,
   FileCheck2,
   FileText,
   MessageSquare,
@@ -17,6 +18,7 @@ import type { NotificationModel } from "@/types";
 /** Notification category → icon + tinted chip classes. */
 export function notificationVisual(category: string): { icon: LucideIcon; className: string } {
   const c = (category ?? "").toLowerCase();
+  if (c.includes("attendance")) return { icon: Clock, className: "bg-warning-muted text-warning" };
   if (c.includes("leave")) return { icon: CalendarCheck, className: "bg-success-muted text-success" };
   if (c.includes("eod")) return { icon: FileText, className: "bg-primary-muted text-primary" };
   if (c.includes("payslip") || c.includes("salary"))
@@ -30,6 +32,10 @@ export function notificationVisual(category: string): { icon: LucideIcon; classN
 
 /** Deep-link map keyed by `notification.data.target`. */
 export const TARGET_ROUTES: Record<string, string> = {
+  // The forgotten-checkout nudge. Without this the reminder was a dead row: it told
+  // people they'd left a day open and then went nowhere when tapped.
+  attendance_checkout: "/time",
+  attendance: "/time",
   leave: "/leaves",
   eod: "/eod-reports",
   claim: "/insurance-claims",
@@ -45,5 +51,15 @@ export const TARGET_ROUTES: Record<string, string> = {
 /** Resolve the page a notification should deep-link to, if any (else undefined). */
 export function routeForNotification(n: NotificationModel): string | undefined {
   const target = n.data?.target;
-  return target ? TARGET_ROUTES[target] : undefined;
+  if (!target) return undefined;
+  const route = TARGET_ROUTES[target];
+  if (!route) return undefined;
+
+  // The forgotten-checkout nudge names the day it's about. Carry it through so the
+  // attendance page can jump to that month and open the correction straight away —
+  // landing on a month view and making someone hunt for the row defeats the reminder.
+  if (target === "attendance_checkout" && typeof n.data?.date === "string") {
+    return `${route}?adjust=${encodeURIComponent(n.data.date)}`;
+  }
+  return route;
 }

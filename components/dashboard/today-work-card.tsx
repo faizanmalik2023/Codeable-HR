@@ -1,10 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { Clock, LogIn, LogOut, Coffee, ArrowRight, RotateCw } from "lucide-react";
+import {
+  Clock,
+  LogIn,
+  LogOut,
+  Coffee,
+  ArrowRight,
+  RotateCw,
+  Hourglass,
+  AlertCircle,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CheckoutAdjustSheet } from "@/components/attendance/checkout-adjust-sheet";
+import { useAdjustCheckout } from "@/components/attendance/use-adjust-checkout";
 import { formatTime } from "@/lib/utils";
 import type { AttendanceToday, AttendanceTodaySession } from "@/types";
 import { useTodayWork } from "@/app/(dashboard)/dashboard/use-today-work";
@@ -280,6 +292,79 @@ export function TodayWorkCard({ enabled = true }: { enabled?: boolean }) {
           </div>
         )}
       </div>
+
+      <CheckoutState today={data} />
     </Card>
+  );
+}
+
+/**
+ * The forgotten-tap-out affordance for TODAY, plus the state of any correction already
+ * sent. Renders nothing on a normal, properly-closed day — it should only appear when
+ * there is something to do or something to report.
+ *
+ * `can_adjust_checkout` comes from the server; the window rule is never re-derived here.
+ * An earlier day that was never closed is handled on the attendance log instead, since
+ * this card only ever shows today.
+ */
+function CheckoutState({ today }: { today: AttendanceToday }) {
+  const [open, setOpen] = React.useState(false);
+  const adjust = useAdjustCheckout();
+  const status = today.checkout_status;
+
+  if (status === "pending_approval") {
+    return (
+      <div className="mt-4 flex items-start gap-2.5 rounded-[var(--radius-lg)] border border-warning/25 bg-warning/5 p-3.5">
+        <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+        <p className="text-xs leading-relaxed text-foreground-muted">
+          You sent a checkout time for this day.{" "}
+          <span className="font-medium text-foreground">HR is reviewing it</span> — your
+          hours update once it&apos;s approved.
+        </p>
+      </div>
+    );
+  }
+
+  if (status === "rejected") {
+    return (
+      <div className="mt-4 flex items-start gap-2.5 rounded-[var(--radius-lg)] border border-destructive/25 bg-destructive/5 p-3.5">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+        <p className="text-xs leading-relaxed text-foreground-muted">
+          HR didn&apos;t approve the checkout time you sent for this day. Speak to them if
+          it still looks wrong.
+        </p>
+      </div>
+    );
+  }
+
+  if (!today.can_adjust_checkout) return null;
+
+  return (
+    <>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border bg-secondary/25 p-3.5">
+        <div className="flex items-start gap-2.5">
+          <LogOut className="mt-0.5 h-4 w-4 shrink-0 text-foreground-muted" />
+          <p className="text-xs leading-relaxed text-foreground-muted">
+            Still on the clock. If you&apos;ve finished and forgot to tap out, set your
+            checkout time.
+          </p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          Set checkout time
+        </Button>
+      </div>
+
+      <CheckoutAdjustSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        date={today.date}
+        checkInTime={today.check_in_time}
+        backdated={false} // this card only ever shows today
+        isPending={adjust.isPending}
+        onSubmit={(body) =>
+          adjust.mutate(body, { onSuccess: () => setOpen(false) })
+        }
+      />
+    </>
   );
 }

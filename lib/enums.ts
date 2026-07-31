@@ -109,6 +109,31 @@ export const CHECK_IN_LABELS: Record<CheckInStatus, string> = {
   checked_out: "Checked out",
 };
 
+/**
+ * How a day's checkout stands (`checkout_status`). Distinct from `CheckInStatus`:
+ * that says whether the clock is running, this says whether the day's END is settled,
+ * self-corrected, or waiting on HR.
+ */
+export type CheckoutStatus =
+  | "not_checked_in"
+  | "open"
+  | "final"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "auto_closed";
+export const CheckoutStatusEnum = enumHelper<CheckoutStatus>({
+  not_checked_in: { label: "Not checked in", tone: "muted" },
+  open: { label: "Still open", tone: "warning" },
+  final: { label: "Closed", tone: "success" },
+  // The employee has proposed a time for a past day and HR hasn't ruled yet.
+  pending_approval: { label: "Awaiting HR", tone: "warning" },
+  approved: { label: "Approved", tone: "success" },
+  rejected: { label: "Rejected", tone: "destructive" },
+  // The overnight job stamped a day nobody closed. Still fixable inside the window.
+  auto_closed: { label: "Never closed", tone: "destructive" },
+});
+
 export type IssueStatus = "open" | "in_progress" | "resolved" | "closed";
 export const IssueStatusEnum = enumHelper<IssueStatus>({
   open: { label: "Open", tone: "default" },

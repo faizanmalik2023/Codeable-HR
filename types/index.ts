@@ -9,6 +9,7 @@
 import type {
   AttendanceReportStatus,
   CheckInStatus,
+  CheckoutStatus,
   ClaimReason,
   ClaimStatus,
   EmploymentType,
@@ -304,6 +305,15 @@ export interface AttendanceDay {
   hours_worked?: number;
   holiday_name?: string;
   sessions?: AttendanceSession[];
+  /** Whether the day's end is settled, self-corrected, or waiting on HR. */
+  checkout_status?: CheckoutStatus;
+  overtime_minutes?: number;
+  /**
+   * Whether the employee may still set this day's checkout themselves. Decided by the
+   * server (window + open + nothing already in review) — never re-derived here, or the
+   * two would disagree about when the window shuts.
+   */
+  can_adjust_checkout?: boolean;
 }
 
 export interface AttendanceMonthModel {
@@ -335,6 +345,12 @@ export interface AttendanceToday {
   hours_worked: GlanceHours;
   status: CheckInStatus;
   sessions: AttendanceTodaySession[];
+  checkout_status?: CheckoutStatus;
+  overtime_minutes?: number;
+  /** Server-decided: may the employee still close this day themselves? */
+  can_adjust_checkout?: boolean;
+  shift_start?: string;
+  shift_end?: string;
 }
 
 /* ------------------------------------------------------------------ */

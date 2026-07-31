@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, Clock, CheckCircle2, XCircle, Timer, Palmtree, LogIn, LogOut } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { CalendarDays, Clock, CheckCircle2, XCircle, Timer, Palmtree, LogIn, LogOut, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { FilterTabs } from "@/components/ui/filter-tabs";
@@ -12,7 +14,9 @@ import { SkeletonStats } from "@/components/ui/skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusCard } from "@/components/shared/status-card";
-import { AttendanceReportStatusEnum, ATTENDANCE_FILTERS } from "@/lib/enums";
+import { CheckoutAdjustSheet } from "@/components/attendance/checkout-adjust-sheet";
+import { useAdjustCheckout } from "@/components/attendance/use-adjust-checkout";
+import { AttendanceReportStatusEnum, CheckoutStatusEnum, ATTENDANCE_FILTERS } from "@/lib/enums";
 import { formatOrdinalDate } from "@/lib/format";
 import { formatTime } from "@/lib/utils";
 import { useAttendance } from "./use-attendance";
@@ -36,10 +40,61 @@ function hoursLabel(value?: number): string {
   return `${Number(value.toFixed(1)).toString()}h`;
 }
 
+/** A day whose end isn't settled: still open, auto-closed, or waiting on HR. */
+function needsCheckout(d: AttendanceDay): boolean {
+  const s = d.checkout_status;
+  return s === "open" || s === "auto_closed" || s === "pending_approval" || s === "rejected";
+}
+
 export default function TimePage() {
+  return (
+    <React.Suspense fallback={<SkeletonStats count={4} />}>
+      <TimePageInner />
+    </React.Suspense>
+  );
+}
+
+function TimePageInner() {
   const { month, setMonth, year, setYear, filter, setFilter, filtered, summary, query } =
     useAttendance();
+  // `?adjust=YYYY-MM-DD` arrives from the forgotten-checkout notification.
+  const searchParams = useSearchParams();
+  const adjustParam = searchParams.get("adjust");
   const [selected, setSelected] = React.useState<AttendanceDay | null>(null);
+  // Held separately from `selected`: the correction opens its own sheet, and two
+  // stacked sheets would trap focus behind each other.
+  const [adjusting, setAdjusting] = React.useState<AttendanceDay | null>(null);
+  const adjust = useAdjustCheckout();
+
+  // Days the employee can still close themselves. The server decides eligibility per
+  // row; this only counts them for the prompt.
+  const fixable = React.useMemo(
+    () => (query.data?.items ?? []).filter((d) => d.can_adjust_checkout),
+    [query.data]
+  );
+
+  // Arriving from the notification: show the month that day belongs to, otherwise the
+  // row it names isn't even loaded.
+  React.useEffect(() => {
+    if (!adjustParam) return;
+    const [y, m] = adjustParam.split("-").map(Number);
+    if (!y || !m) return;
+    setYear(y);
+    setMonth(m);
+  }, [adjustParam, setMonth, setYear]);
+
+  // …then open the correction on that day once it has actually loaded. Fires once:
+  // re-opening every render would make the sheet impossible to dismiss.
+  const handledParam = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!adjustParam || handledParam.current === adjustParam) return;
+    const day = (query.data?.items ?? []).find((d) => d.date === adjustParam);
+    if (!day) return; // still loading, or a different month
+    handledParam.current = adjustParam;
+    // Only if it's still correctable — the window may have closed, or HR may already
+    // have ruled, between the push landing and the tap.
+    if (day.can_adjust_checkout) setAdjusting(day);
+  }, [adjustParam, query.data]);
 
   const yearOptions = React.useMemo(() => {
     const current = new Date().getFullYear();
@@ -72,7 +127,21 @@ export default function TimePage() {
       ),
     },
     { key: "check_in", header: "Check-In", render: (d) => clock(d.check_in) },
-    { key: "check_out", header: "Check-Out", render: (d) => clock(d.check_out) },
+    {
+      key: "check_out",
+      header: "Check-Out",
+      // A day nobody closed shows a chip instead of a blank cell. Without it an
+      // unclosed day is indistinguishable from one that simply has no data, which is
+      // exactly the day the employee needs to find.
+      render: (d) =>
+        needsCheckout(d) ? (
+          <Badge variant={CheckoutStatusEnum.tone(d.checkout_status!)}>
+            {CheckoutStatusEnum.label(d.checkout_status!)}
+          </Badge>
+        ) : (
+          clock(d.check_out)
+        ),
+    },
     {
       key: "hours",
       header: "Hours",
@@ -105,6 +174,30 @@ export default function TimePage() {
           </div>
         }
       />
+
+      {/* Days left open. Surfaced above the table because the whole problem is that
+          nobody notices a forgotten tap-out until payroll is short. */}
+      {fixable.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-warning/25 bg-warning/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {fixable.length === 1
+                  ? "One day is still open"
+                  : `${fixable.length} days are still open`}
+              </p>
+              <p className="text-xs text-foreground-muted">
+                You clocked in but never tapped out. Set the time you finished so your
+                hours are right.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setAdjusting(fixable[0])}>
+            Fix {formatOrdinalDate(fixable[0].date)}
+          </Button>
+        </div>
+      )}
 
       {/* Summary */}
       {isInitialLoading ? (
@@ -196,9 +289,42 @@ export default function TimePage() {
                 <DetailStat label="Hours" value={hoursLabel(selected.hours_worked)} />
               </div>
             )}
+
+            {selected.can_adjust_checkout && (
+              <div className="rounded-[var(--radius-lg)] border border-warning/25 bg-warning/5 p-4">
+                <p className="text-sm font-medium text-foreground">This day never closed</p>
+                <p className="mt-1 text-xs leading-relaxed text-foreground-muted">
+                  Set the time you finished. Because the day has already passed, HR
+                  approves it before it counts towards your hours.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => {
+                    // Swap sheets rather than stacking them.
+                    setAdjusting(selected);
+                    setSelected(null);
+                  }}
+                >
+                  Set checkout time
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </Sheet>
+
+      <CheckoutAdjustSheet
+        open={!!adjusting}
+        onClose={() => setAdjusting(null)}
+        date={adjusting?.date ?? ""}
+        checkInTime={adjusting?.sessions?.[0]?.in ?? adjusting?.check_in ?? null}
+        // Anything reachable from this log is a past day, so it always goes to HR.
+        backdated
+        isPending={adjust.isPending}
+        onSubmit={(body) => adjust.mutate(body, { onSuccess: () => setAdjusting(null) })}
+      />
     </div>
   );
 }
