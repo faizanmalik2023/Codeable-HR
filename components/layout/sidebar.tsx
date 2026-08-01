@@ -36,6 +36,7 @@ import {
   HeartHandshake,
   Scale,
   ArrowUpNarrowWide,
+  LineChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,7 @@ const navItems: NavItem[] = [
   { title: "Loans", href: "/admin/loans", icon: HandCoins, roles: ["admin"] },
   { title: "Treasury", href: "/admin/treasury", icon: Landmark, roles: ["admin"] },
   { title: "Position & Assets", href: "/admin/position", icon: Scale, roles: ["admin"] },
+  { title: "Forecast", href: "/admin/forecast", icon: LineChart, roles: ["admin"] },
   { title: "Donations", href: "/admin/donations", icon: HeartHandshake, roles: ["admin"] },
   { title: "Increment Cycle", href: "/admin/increments", icon: ArrowUpNarrowWide, roles: ["admin"] },
   { title: "Equity", href: "/admin/equity", icon: PieChart, roles: ["admin"] },

@@ -24,6 +24,7 @@ import {
   PiggyBank,
   HeartHandshake,
   ArrowUpNarrowWide,
+  LineChart,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -219,6 +220,7 @@ export default function TreasuryPage() {
                 <ToolButton icon={CalendarClock} label="Periods" description="Close / reopen months" onClick={() => router.push("/admin/treasury/periods")} />
                 <ToolButton icon={ScrollText} label="Audit trail" description="Immutable log" onClick={() => router.push("/admin/treasury/audit")} />
                 <ToolButton icon={PieChart} label="Equity" description="Distributions" onClick={() => router.push("/admin/equity")} />
+                <ToolButton icon={LineChart} label="Forecast" description="Where the money is heading" onClick={() => router.push("/admin/forecast")} />
                 <ToolButton icon={Scale} label="Position & assets" description="Cash, pipeline, what we own" onClick={() => router.push("/admin/position")} />
                 <ToolButton icon={HandCoins} label="Loans" description="Who owes what" onClick={() => router.push("/admin/loans")} />
                 <ToolButton icon={HeartHandshake} label="Donations" description="Giving + who vouched" onClick={() => router.push("/admin/donations")} />
