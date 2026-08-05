@@ -17,7 +17,7 @@ import { StatusCard } from "@/components/shared/status-card";
 import { CheckoutAdjustSheet } from "@/components/attendance/checkout-adjust-sheet";
 import { useAdjustCheckout } from "@/components/attendance/use-adjust-checkout";
 import { AttendanceReportStatusEnum, CheckoutStatusEnum, ATTENDANCE_FILTERS } from "@/lib/enums";
-import { formatOrdinalDate } from "@/lib/format";
+import { formatOrdinalDate, toWireDate } from "@/lib/format";
 import { formatTime } from "@/lib/utils";
 import { useAttendance } from "./use-attendance";
 import type { AttendanceDay } from "@/types";
@@ -66,10 +66,18 @@ function TimePageInner() {
   const [adjusting, setAdjusting] = React.useState<AttendanceDay | null>(null);
   const adjust = useAdjustCheckout();
 
-  // Days the employee can still close themselves. The server decides eligibility per
-  // row; this only counts them for the prompt.
+  // Days that never closed AND can still be fixed by the employee. `can_adjust_checkout`
+  // alone is wider than that — a day showing a checkout stays correctable too (a lunch
+  // punch nobody paired reads as finished) — so the alarm above the table would fire on
+  // every ordinary day of the month. The row and the drawer still offer the fix on those;
+  // this banner is only for the days nobody closed.
   const fixable = React.useMemo(
-    () => (query.data?.items ?? []).filter((d) => d.can_adjust_checkout),
+    () =>
+      (query.data?.items ?? []).filter(
+        (d) =>
+          d.can_adjust_checkout &&
+          (d.checkout_status === "open" || d.checkout_status === "auto_closed")
+      ),
     [query.data]
   );
 
@@ -292,7 +300,11 @@ function TimePageInner() {
 
             {selected.can_adjust_checkout && (
               <div className="rounded-[var(--radius-lg)] border border-warning/25 bg-warning/5 p-4">
-                <p className="text-sm font-medium text-foreground">This day never closed</p>
+                <p className="text-sm font-medium text-foreground">
+                  {needsCheckout(selected)
+                    ? "This day never closed"
+                    : "Left later than this?"}
+                </p>
                 <p className="mt-1 text-xs leading-relaxed text-foreground-muted">
                   Set the time you finished. Because the day has already passed, HR
                   approves it before it counts towards your hours.
@@ -320,8 +332,10 @@ function TimePageInner() {
         onClose={() => setAdjusting(null)}
         date={adjusting?.date ?? ""}
         checkInTime={adjusting?.sessions?.[0]?.in ?? adjusting?.check_in ?? null}
-        // Anything reachable from this log is a past day, so it always goes to HR.
-        backdated
+        // The log includes today, and today's correction applies immediately — telling
+        // someone it goes to HR when it doesn't is the kind of small lie that stops
+        // people using the fix at all.
+        backdated={!!adjusting && adjusting.date !== toWireDate(new Date())}
         isPending={adjust.isPending}
         onSubmit={(body) => adjust.mutate(body, { onSuccess: () => setAdjusting(null) })}
       />

@@ -339,18 +339,32 @@ function CheckoutState({ today }: { today: AttendanceToday }) {
 
   if (!today.can_adjust_checkout) return null;
 
+  // A day can show a checkout and still be wrong: the commonest case is a lunch punch
+  // nobody paired with a return, which reads as a finished day and is short by an
+  // afternoon. The server offers the fix either way, so the copy has to tell the two
+  // apart rather than insisting everyone is still on the clock.
+  const closedAt = today.check_out_time;
+
   return (
     <>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border bg-secondary/25 p-3.5">
         <div className="flex items-start gap-2.5">
           <LogOut className="mt-0.5 h-4 w-4 shrink-0 text-foreground-muted" />
           <p className="text-xs leading-relaxed text-foreground-muted">
-            Still on the clock. If you&apos;ve finished and forgot to tap out, set your
-            checkout time.
+            {closedAt ? (
+              <>
+                Your day shows a checkout at{" "}
+                <span className="font-medium text-foreground">{formatTime(closedAt)}</span>.
+                If you stayed on after that, set when you actually left.
+              </>
+            ) : (
+              <>Finished for the day? Set your checkout time — you don&apos;t have to wait
+              for a tap-out to be picked up.</>
+            )}
           </p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-          Set checkout time
+          {closedAt ? "Update checkout" : "Check out"}
         </Button>
       </div>
 

@@ -77,10 +77,13 @@ export function CheckoutAdjustSheet({
   // half-typed correction never carries into today's.
   React.useEffect(() => {
     if (!open) return;
-    setTime("");
+    // Today defaults to right now — the common case is someone leaving, and making them
+    // type the current time is a step for nothing. A past day gets no default: that one
+    // goes to HR, and a guessed time is not something to put in their mouth.
+    setTime(backdated ? "" : toTimeValue(new Date()));
     setReason("");
     setError(null);
-  }, [open, date]);
+  }, [open, date, backdated]);
 
   const checkInAt = React.useMemo(
     () => resolveCheckIn(checkInTime, date),
