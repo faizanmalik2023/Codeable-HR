@@ -119,11 +119,15 @@ function HeaderCard({
   return (
     <Card className="p-6">
       <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+        {/* inline-flex, not the default inline-block: an inline box sits on the text
+            baseline and reserves descender space under the avatar, so the button was
+            taller than the circle inside it and `inset-0` painted the hover scrim low
+            and oversized. */}
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
           disabled={uploading}
-          className="group relative rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="group relative inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label={uploading ? "Uploading photo" : "Change photo"}
         >
           <Avatar name={profile.full_name} src={profile.avatar ?? undefined} size="xl" />

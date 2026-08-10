@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -27,14 +28,16 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BlurText } from "@/components/animations/blur-text";
+import { StaggerItem } from "@/components/animations/fade-in";
 import { Avatar } from "@/components/ui/avatar";
 import { StatusCard } from "@/components/shared/status-card";
 import { QuickActionCard } from "@/components/shared/quick-action-card";
 import { SkeletonStats, SkeletonCard, Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/empty-state";
-import { formatOrdinalDate, timeAgo } from "@/lib/format";
+import { formatDateRange, formatOrdinalDate, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CHECK_IN_LABELS } from "@/lib/enums";
+import { CHECK_IN_LABELS, IssueStatusEnum } from "@/lib/enums";
 import { hasRole } from "@/stores/auth-store";
 import { TodayWorkCard } from "@/components/dashboard/today-work-card";
 import { useDashboard } from "./use-dashboard";
@@ -52,6 +55,17 @@ function creativeGreeting(base: string, firstName: string, seed: string): string
   let h = 0;
   for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return set[h % set.length];
+}
+
+/* One tile in the quick-action grid. Listed as data rather than eight near-identical
+ * JSX blocks so the grid can be mapped — and so each tile can be handed its index for
+ * the staggered entrance. */
+interface QuickAction {
+  title: string;
+  description: string;
+  icon: typeof FileText;
+  href: string;
+  variant?: "primary";
 }
 
 /* Activity type → icon + tone mapping. */
@@ -97,6 +111,24 @@ export default function DashboardPage() {
       : data.eod_status === "submitted"
         ? { title: "View EOD", description: "Reviewed by manager", href: "/eod-reports" }
         : { title: "Submit EOD", description: "Log your day", href: "/eod-reports/submit" };
+
+  const quickActions: QuickAction[] = isHrPlus
+    ? [
+        { title: "People", description: "Browse employees", icon: Users, href: "/people" },
+        { title: "Leave Requests", description: "Review & approve", icon: UserCheck, href: "/hr/leaves" },
+        { title: "Attendance", description: "Company logs", icon: Clock, href: "/hr/time" },
+        { title: "Departments", description: "Manage org", icon: Building2, href: "/departments" },
+      ]
+    : [
+        { ...eodAction, icon: FileText, variant: data.eod_pending ? "primary" : undefined },
+        { title: "Apply Leave", description: "Request time off", icon: CalendarPlus, href: "/leaves/apply" },
+        { title: "View Salary", description: "Slips & breakdown", icon: Wallet, href: "/salary-details" },
+        { title: "Attendance", description: "View your logs", icon: Clock, href: "/time" },
+        { title: "Insurance Claim", description: "Submit a claim", icon: Shield, href: "/insurance-claims/submit" },
+        { title: "Expense Claim", description: "Get reimbursed", icon: Receipt, href: "/expense-claims/submit" },
+        { title: "HR Help", description: "Raise an issue", icon: MessageSquare, href: "/my-issues/new" },
+        { title: "Policies", description: "Company handbook", icon: BookOpen, href: "/policies" },
+      ];
 
   return (
     <div className="space-y-6">
@@ -155,16 +187,22 @@ export default function DashboardPage() {
             "linear-gradient(135deg, hsl(var(--hero-from)) 0%, hsl(var(--hero-to)) 100%)",
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        {/* A slow drift on the watermark — long enough that it reads as ambient rather
+            than as something asking to be looked at. */}
+        <motion.img
           src="/logo-white.svg"
           alt=""
           aria-hidden
-          className="pointer-events-none absolute -right-6 -top-6 w-56 max-w-none rotate-12 opacity-[0.12]"
+          className="pointer-events-none absolute -right-6 -top-6 w-56 max-w-none opacity-[0.12]"
+          initial={{ rotate: 12, y: 0 }}
+          animate={{ rotate: [12, 15, 12], y: [0, -10, 0] }}
+          transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
         />
         <div className="relative flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-heading text-2xl font-bold md:text-3xl">{greeting}</h1>
+            <h1 className="font-heading text-2xl font-bold md:text-3xl">
+              <BlurText text={greeting} />
+            </h1>
             {data.current_date && (
               <p className="mt-1 text-sm text-white/70">{formatOrdinalDate(data.current_date)}</p>
             )}
@@ -179,27 +217,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — dealt out one after another instead of landing as a slab. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {isHrPlus ? (
-          <>
-            <QuickActionCard title="People" description="Browse employees" icon={Users} onClick={() => router.push("/people")} />
-            <QuickActionCard title="Leave Requests" description="Review & approve" icon={UserCheck} onClick={() => router.push("/hr/leaves")} />
-            <QuickActionCard title="Attendance" description="Company logs" icon={Clock} onClick={() => router.push("/hr/time")} />
-            <QuickActionCard title="Departments" description="Manage org" icon={Building2} onClick={() => router.push("/departments")} />
-          </>
-        ) : (
-          <>
-            <QuickActionCard title={eodAction.title} description={eodAction.description} icon={FileText} variant={data.eod_pending ? "primary" : undefined} onClick={() => router.push(eodAction.href)} />
-            <QuickActionCard title="Apply Leave" description="Request time off" icon={CalendarPlus} onClick={() => router.push("/leaves/apply")} />
-            <QuickActionCard title="View Salary" description="Slips & breakdown" icon={Wallet} onClick={() => router.push("/salary-details")} />
-            <QuickActionCard title="Attendance" description="View your logs" icon={Clock} onClick={() => router.push("/time")} />
-            <QuickActionCard title="Insurance Claim" description="Submit a claim" icon={Shield} onClick={() => router.push("/insurance-claims/submit")} />
-            <QuickActionCard title="Expense Claim" description="Get reimbursed" icon={Receipt} onClick={() => router.push("/expense-claims/submit")} />
-            <QuickActionCard title="HR Help" description="Raise an issue" icon={MessageSquare} onClick={() => router.push("/my-issues/new")} />
-            <QuickActionCard title="Policies" description="Company handbook" icon={BookOpen} onClick={() => router.push("/policies")} />
-          </>
-        )}
+        {quickActions.map((a, i) => (
+          <StaggerItem key={a.title} index={i}>
+            <QuickActionCard {...a} onClick={() => router.push(a.href)} />
+          </StaggerItem>
+        ))}
       </div>
 
       {/* Live work timer + today's sessions — only for roles that clock in. */}
@@ -265,15 +289,38 @@ export default function DashboardPage() {
             ))}
           </SectionCard>
           <SectionCard title="Team Leave Requests" href="/leaves/team" icon={UserCheck}>
-            {(data.team_leave_requests ?? []).slice(0, 4).map((l, i) => (
-              <div key={l.id ?? l.employee?.employee_code ?? i} className="flex items-center gap-3 py-2">
-                <Avatar name={l.employee?.full_name ?? l.employee?.name} size="sm" />
-                <span className="flex-1 text-sm font-medium text-foreground">
-                  {l.employee?.full_name ?? l.employee?.name ?? "Team member"}
-                </span>
-                <Badge variant="warning">Pending</Badge>
-              </div>
-            ))}
+            {data.team_leave_requests?.length ? (
+              data.team_leave_requests.slice(0, 4).map((l, i) => (
+                <Link
+                  key={l.id ?? i}
+                  href={`/leaves/team/${l.employee?.id ?? ""}`}
+                  className="flex items-center gap-3 border-b border-border py-2.5 transition-colors last:border-0 hover:bg-secondary/40"
+                >
+                  <Avatar
+                    name={l.employee?.full_name}
+                    src={l.employee?.avatar ?? undefined}
+                    size="sm"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {l.employee?.full_name ?? "Team member"}
+                    </p>
+                    <p className="truncate text-xs text-foreground-muted">
+                      {l.leave_type_name ?? l.leave_type} ·{" "}
+                      {formatDateRange(l.date_from, l.date_to)}
+                    </p>
+                  </div>
+                  {/* When they asked — the thing a manager judges urgency by. */}
+                  <span className="whitespace-nowrap text-xs text-foreground-subtle">
+                    {timeAgo(l.applied_date)}
+                  </span>
+                </Link>
+              ))
+            ) : (
+              <p className="py-6 text-center text-sm text-foreground-muted">
+                No leave requests waiting on you.
+              </p>
+            )}
           </SectionCard>
         </div>
       ) : null}
@@ -376,10 +423,16 @@ export default function DashboardPage() {
           {data.open_tickets?.length ? (
             <SectionCard title="Open Tickets" href={isHrPlus ? "/hr/issues" : "/my-issues"} icon={MessageSquare}>
               {data.open_tickets.slice(0, 4).map((t, i) => (
-                <div key={t.id ?? i} className="flex items-center gap-2 border-b border-border py-2.5 last:border-0">
+                <Link
+                  key={t.id ?? i}
+                  href={`${isHrPlus ? "/hr/issues" : "/my-issues"}/${t.id}`}
+                  className="flex items-center gap-2 border-b border-border py-2.5 transition-colors last:border-0 hover:bg-secondary/40"
+                >
                   <span className="flex-1 truncate text-sm font-medium text-foreground">{t.title}</span>
-                  <Badge variant="secondary">{t.status}</Badge>
-                </div>
+                  <Badge variant={IssueStatusEnum.tone(t.status)} className="shrink-0">
+                    {IssueStatusEnum.label(t.status)}
+                  </Badge>
+                </Link>
               ))}
             </SectionCard>
           ) : null}

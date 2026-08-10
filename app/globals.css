@@ -291,6 +291,21 @@
   border-color: hsl(var(--border));
 }
 
+/* Tailwind v4's preflight sets `cursor: default` on buttons, so every button, tab,
+   dropdown trigger and icon action in the app stopped showing the hand on hover —
+   the pointer only survived on plain links. Put it back once, here, rather than
+   sprinkling `cursor-pointer` across a hundred components. A disabled control keeps
+   the default arrow, which is the honest signal that clicking does nothing. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]),
+[role="option"],
+summary,
+label[for],
+select:not(:disabled) {
+  cursor: pointer;
+}
+
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));

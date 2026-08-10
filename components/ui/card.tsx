@@ -18,6 +18,9 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
           "rounded-[var(--radius-lg)] border border-border bg-card text-card-foreground shadow-[var(--shadow-sm)]",
           hover &&
             "transition-all duration-200 hover:border-border-hover hover:bg-card-hover hover:shadow-[var(--shadow-md)]",
+          // A card wired to onClick is a button in everything but tag name, so it gets
+          // the hand. The CSS reset can only reach real buttons and role="button".
+          props.onClick && "cursor-pointer",
           className
         )}
         initial={{ opacity: 0, y: 10 }}
