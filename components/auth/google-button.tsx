@@ -101,7 +101,14 @@ export function GoogleButton({ onCredential, disabled }: GoogleButtonProps) {
       className="flex justify-center"
       style={disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined}
     >
-      <div ref={ref} />
+      {/* Google renders its button in an iframe that it deliberately overflows past
+          its own wrapper (`margin: -2px -10px`), expecting the wrapper to clip it —
+          but it never sets `overflow`, so the iframe's white page shows as a hard
+          rectangle around the pill. Invisible on a white page; on the dark theme it's
+          a white border round the button. Clip it here, matched to the pill's radius.
+          Targeted as "the child Google renders" rather than by its class, which is
+          minified and not ours to depend on. */}
+      <div ref={ref} className="[&>div]:overflow-hidden [&>div]:rounded-full" />
     </div>
   );
 }
