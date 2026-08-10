@@ -49,7 +49,7 @@ export default function InsuranceClaimsPage() {
             header: "Employee",
             render: (r: InsuranceClaimModel) => (
               <div className="flex items-center gap-2">
-                <Avatar name={r.employee?.full_name ?? r.employee?.name} size="xs" />
+                <Avatar name={r.employee?.full_name ?? r.employee?.name} src={r.employee?.avatar ?? undefined} size="xs" />
                 <span className="font-medium text-foreground">
                   {r.employee?.full_name ?? r.employee?.name ?? "—"}
                 </span>
@@ -161,7 +161,7 @@ export default function InsuranceClaimsPage() {
 
             {isReviewer && selected.employee && (
               <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary/40 p-3">
-                <Avatar name={selected.employee.full_name ?? selected.employee.name} size="sm" />
+                <Avatar name={selected.employee.full_name ?? selected.employee.name} src={selected.employee.avatar ?? undefined} size="sm" />
                 <div>
                   <p className="text-sm font-medium text-foreground">
                     {selected.employee.full_name ?? selected.employee.name}
