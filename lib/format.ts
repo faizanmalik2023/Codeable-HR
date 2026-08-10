@@ -71,6 +71,12 @@ export function toWireDate(d: Date): string {
   ).padStart(2, "0")}`;
 }
 
+/** `2026-09` → "Sep 26". Short on purpose: these sit in axis ticks and table cells. */
+export function monthLabel(m: string): string {
+  const [y, mm] = m.split("-");
+  return `${MONTHS[Number(mm) - 1]?.slice(0, 3) ?? m} ${y?.slice(2) ?? ""}`.trim();
+}
+
 /** Wire month key `YYYY-MM`. */
 export function toWireMonth(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;

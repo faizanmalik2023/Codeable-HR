@@ -103,6 +103,9 @@ export interface Receivable {
   currency: ExpenseCurrency;
   amount_pkr: number;
   expected_month: string | null;
+  /** Months a `monthly` retainer runs. Null start = already running, null end = rolling. */
+  start_month: string | null;
+  end_month: string | null;
   settled_at: string | null;
   note: string | null;
   created_at: string;

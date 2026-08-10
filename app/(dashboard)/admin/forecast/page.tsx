@@ -16,7 +16,7 @@ import { SkeletonStats } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { QueryState } from "@/components/shared/query-state";
 import { StatusCard } from "@/components/shared/status-card";
-import { formatMoney, formatCompact } from "@/lib/format";
+import { formatMoney, formatCompact, monthLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   SCENARIO_HELP,
@@ -26,12 +26,6 @@ import {
   type ForecastScenario,
 } from "@/lib/api/admin-forecast";
 import { useForecast } from "./use-forecast";
-
-const monthLabel = (m: string) => {
-  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const [y, mm] = m.split("-");
-  return `${names[Number(mm) - 1] ?? m} ${y.slice(2)}`;
-};
 
 export default function AdminForecastPage() {
   const { months, setMonths, scenario, setScenario, forecast, rows, pick, HORIZONS } =

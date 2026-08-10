@@ -11,6 +11,7 @@ import {
   Trash2,
   AlertTriangle,
   Landmark,
+  Info,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SkeletonStats } from "@/components/ui/skeleton";
 import { DataTable, type DataTableColumn } from "@/components/ui/table";
@@ -26,7 +28,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { QueryState } from "@/components/shared/query-state";
 import { StatusCard } from "@/components/shared/status-card";
-import { formatAmount, formatMoney, formatOrdinalDate } from "@/lib/format";
+import { formatAmount, formatMoney, formatOrdinalDate, monthLabel } from "@/lib/format";
+import type { ExpenseCurrency } from "@/lib/enums";
 import {
   ASSET_CATEGORY_LABELS,
   CASH_ACCOUNT_KIND_LABELS,
@@ -55,7 +58,7 @@ export default function AdminPositionPage() {
     assets,
     saveAccount,
     deleteAccount,
-    createReceivable,
+    saveReceivable,
     settleReceivable,
     deleteReceivable,
     createAsset,
@@ -64,8 +67,15 @@ export default function AdminPositionPage() {
 
   const [tab, setTab] = React.useState("accounts");
   const [editingAccount, setEditingAccount] = React.useState<CashAccount | null>(null);
-  const [addingReceivable, setAddingReceivable] = React.useState(false);
+  // Doubles as the modal's open flag, like editingAccount. A new row is a partial
+  // carrying just the cadence, so "Add retainer" opens the form already set to monthly.
+  const [editingReceivable, setEditingReceivable] =
+    React.useState<Partial<Receivable> | null>(null);
   const [addingAsset, setAddingAsset] = React.useState(false);
+
+  const allReceivables = receivables.data?.items ?? [];
+  const retainers = allReceivables.filter((r) => r.cadence === "monthly");
+  const oneOffs = allReceivables.filter((r) => r.cadence !== "monthly");
 
   const accountColumns: DataTableColumn<CashAccount>[] = [
     {
@@ -130,7 +140,9 @@ export default function AdminPositionPage() {
     },
   ];
 
-  const receivableColumns: DataTableColumn<Receivable>[] = [
+  // Retainers and one-offs differ in exactly one column — when the money lands. A
+  // retainer has a period, a one-off has a single expected month.
+  const receivableColumns = (kind: ReceivableCadence): DataTableColumn<Receivable>[] => [
     {
       key: "name",
       header: "What",
@@ -154,15 +166,26 @@ export default function AdminPositionPage() {
         </Badge>
       ),
     },
-    {
-      key: "cadence",
-      header: "Cadence",
-      render: (r) => (
-        <span className="text-sm text-foreground-muted">
-          {RECEIVABLE_CADENCE_LABELS[r.cadence]}
-        </span>
-      ),
-    },
+    kind === "monthly"
+      ? {
+          key: "period",
+          header: "Runs",
+          render: (r) => (
+            <span className="text-sm text-foreground-muted">
+              {r.start_month ? monthLabel(r.start_month) : "Already"} –{" "}
+              {r.end_month ? monthLabel(r.end_month) : "open"}
+            </span>
+          ),
+        }
+      : {
+          key: "expected",
+          header: "Expected",
+          render: (r) => (
+            <span className="text-sm text-foreground-muted">
+              {r.expected_month ? monthLabel(r.expected_month) : "No date"}
+            </span>
+          ),
+        },
     {
       key: "amount",
       header: "Amount",
@@ -182,6 +205,9 @@ export default function AdminPositionPage() {
       align: "right",
       render: (r) => (
         <div className="flex justify-end gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setEditingReceivable(r)}>
+            Edit
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -439,25 +465,95 @@ export default function AdminPositionPage() {
         <Card className="p-0">
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">
-                Expected income
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                Monthly retainers
+                <Tooltip
+                  side="right"
+                  content={
+                    <span className="block max-w-[16rem] text-left">
+                      Only <strong>Confirmed</strong> retainers count in the Committed
+                      forecast — the one you can bank on. Not confirmed and Pipeline show
+                      up under Expected only.
+                      <br />
+                      <br />
+                      A retainer is added to every month it runs, so set the period.
+                      Leave the end blank for a rolling contract.
+                    </span>
+                  }
+                >
+                  <Info className="h-3.5 w-3.5 text-foreground-muted" />
+                </Tooltip>
               </h3>
               <p className="text-xs text-foreground-muted">
-                Forecast, not income. Booking the money is a separate step.
+                Recurring income. Confirm one and it lands in every month of its period,
+                in the forecast and the position.
               </p>
             </div>
-            <Button size="sm" onClick={() => setAddingReceivable(true)}>
-              <Plus className="h-4 w-4" /> Add
+            <Button
+              size="sm"
+              onClick={() =>
+                setEditingReceivable({ cadence: "monthly", stage: "confirmed" })
+              }
+            >
+              <Plus className="h-4 w-4" /> Add retainer
             </Button>
           </div>
           {receivables.isLoading ? (
             <div className="p-6">
               <SkeletonStats count={3} />
             </div>
-          ) : (receivables.data?.items.length ?? 0) === 0 ? (
+          ) : retainers.length === 0 ? (
+            <EmptyState
+              title="No retainers"
+              description="Add the recurring contracts so the forecast stops assuming nothing comes in."
+              action={{
+                label: "Add retainer",
+                onClick: () =>
+                  setEditingReceivable({ cadence: "monthly", stage: "confirmed" }),
+              }}
+            />
+          ) : (
+            <DataTable
+              data={retainers}
+              columns={receivableColumns("monthly")}
+              rowKey={(r) => r.id}
+            />
+          )}
+        </Card>
+      )}
+
+      {tab === "receivables" && (
+        <Card className="p-0">
+          <div className="flex items-center justify-between border-b border-border px-6 py-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">One-off income</h3>
+              <p className="text-xs text-foreground-muted">
+                Forecast, not income. Booking the money is a separate step. An entry
+                with no expected month is counted in the first month of the window.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setEditingReceivable({ cadence: "one_time", stage: "confirmed" })
+              }
+            >
+              <Plus className="h-4 w-4" /> Add one-off
+            </Button>
+          </div>
+          {receivables.isLoading ? (
+            <div className="p-6">
+              <SkeletonStats count={3} />
+            </div>
+          ) : oneOffs.length === 0 ? (
             <EmptyState title="Nothing expected" description="Add what's coming in." />
           ) : (
-            <DataTable data={receivables.data!.items} columns={receivableColumns} rowKey={(r) => r.id} />
+            <DataTable
+              data={oneOffs}
+              columns={receivableColumns("one_time")}
+              rowKey={(r) => r.id}
+            />
           )}
         </Card>
       )}
@@ -502,13 +598,13 @@ export default function AdminPositionPage() {
         saving={saveAccount.isPending}
       />
       <ReceivableModal
-        open={addingReceivable}
-        onClose={() => setAddingReceivable(false)}
+        receivable={editingReceivable}
+        onClose={() => setEditingReceivable(null)}
         onSave={async (body) => {
-          await createReceivable.mutateAsync(body);
-          setAddingReceivable(false);
+          await saveReceivable.mutateAsync(body);
+          setEditingReceivable(null);
         }}
-        saving={createReceivable.isPending}
+        saving={saveReceivable.isPending}
       />
       <AssetModal
         open={addingAsset}
@@ -625,15 +721,15 @@ function AccountModal({
 }
 
 function ReceivableModal({
-  open,
+  receivable,
   onClose,
   onSave,
   saving,
 }: {
-  open: boolean;
+  receivable: Partial<Receivable> | null;
   onClose: () => void;
   onSave: (
-    body: Partial<Receivable> & { name: string; stage: ReceivableStage }
+    body: Partial<Receivable> & { name: string; stage: ReceivableStage; id?: string }
   ) => Promise<void>;
   saving: boolean;
 }) {
@@ -641,22 +737,44 @@ function ReceivableModal({
   const [stage, setStage] = React.useState<ReceivableStage>("confirmed");
   const [cadence, setCadence] = React.useState<ReceivableCadence>("one_time");
   const [amount, setAmount] = React.useState("");
+  const [currency, setCurrency] = React.useState<ExpenseCurrency>("USD");
   const [client, setClient] = React.useState("");
+  const [expectedMonth, setExpectedMonth] = React.useState("");
+  const [startMonth, setStartMonth] = React.useState("");
+  const [endMonth, setEndMonth] = React.useState("");
 
   React.useEffect(() => {
-    if (!open) return;
-    setName("");
-    setStage("confirmed");
-    setCadence("one_time");
-    setAmount("");
-    setClient("");
-  }, [open]);
+    if (!receivable) return;
+    setName(receivable.name ?? "");
+    setStage(receivable.stage ?? "confirmed");
+    setCadence(receivable.cadence ?? "one_time");
+    setAmount(receivable.amount ? String(receivable.amount) : "");
+    setCurrency(receivable.currency ?? "USD");
+    setClient(receivable.client ?? "");
+    setExpectedMonth(receivable.expected_month ?? "");
+    setStartMonth(receivable.start_month ?? "");
+    setEndMonth(receivable.end_month ?? "");
+  }, [receivable]);
+
+  const editing = Boolean(receivable?.id);
+  const isRetainer = cadence === "monthly";
+  // The one mistake that silently zeroes a retainer, so it is caught in the form
+  // rather than bounced by the API after the user has typed everything else.
+  const badPeriod = Boolean(startMonth && endMonth && endMonth < startMonth);
 
   return (
     <Modal
-      open={open}
+      open={Boolean(receivable)}
       onClose={onClose}
-      title="Add expected income"
+      title={
+        editing
+          ? isRetainer
+            ? "Edit retainer"
+            : "Edit expected income"
+          : isRetainer
+            ? "Add a retainer"
+            : "Add expected income"
+      }
       description="Confirmed, not confirmed, or pipeline. None of it counts as income yet."
     >
       <div className="space-y-4">
@@ -666,7 +784,7 @@ function ReceivableModal({
             id="rec-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Kibu"
+            placeholder={isRetainer ? "Kobiton retainer" : "Kibu"}
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -689,9 +807,29 @@ function ReceivableModal({
             }))}
           />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <p className="rounded-[var(--radius)] bg-background-secondary px-3 py-2 text-xs text-foreground-muted">
+          {stage === "confirmed" ? (
+            isRetainer ? (
+              <>
+                Confirmed retainers are counted in the <strong>Committed</strong>{" "}
+                forecast — every month between the dates below.
+              </>
+            ) : (
+              <>
+                Confirmed income is counted in the <strong>Committed</strong> forecast.
+              </>
+            )
+          ) : (
+            <>
+              {RECEIVABLE_STAGE_LABELS[stage]} income only shows under{" "}
+              <strong>Expected</strong>. Mark it Confirmed once the contract is signed
+              and it starts counting in the Committed forecast too.
+            </>
+          )}
+        </p>
+        <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <Label htmlFor="rec-amount">Amount (USD)</Label>
+            <Label htmlFor="rec-amount">Amount</Label>
             <Input
               id="rec-amount"
               inputMode="decimal"
@@ -700,6 +838,15 @@ function ReceivableModal({
               placeholder="10800"
             />
           </div>
+          <Select
+            label="Currency"
+            value={currency}
+            onChange={(v) => setCurrency(v as ExpenseCurrency)}
+            options={[
+              { value: "USD", label: "US Dollar ($)" },
+              { value: "PKR", label: "Pakistani Rupee (₨)" },
+            ]}
+          />
           <div>
             <Label htmlFor="rec-client">Client</Label>
             <Input
@@ -709,24 +856,73 @@ function ReceivableModal({
             />
           </div>
         </div>
+        {isRetainer ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="rec-start">Runs from</Label>
+              <Input
+                id="rec-start"
+                type="month"
+                value={startMonth}
+                onChange={(e) => setStartMonth(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-foreground-subtle">
+                Blank = already running.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="rec-end">Runs until</Label>
+              <Input
+                id="rec-end"
+                type="month"
+                value={endMonth}
+                onChange={(e) => setEndMonth(e.target.value)}
+                error={badPeriod ? "It cannot end before it starts." : undefined}
+              />
+              <p className="mt-1 text-xs text-foreground-subtle">
+                Blank = rolling, no agreed end.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <Label htmlFor="rec-expected">Expected month</Label>
+            <Input
+              id="rec-expected"
+              type="month"
+              value={expectedMonth}
+              onChange={(e) => setExpectedMonth(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-foreground-subtle">
+              Leave blank and it is counted in the first month of the forecast.
+            </p>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button
-            disabled={saving || !name || !amount}
+            disabled={saving || !name || !amount || badPeriod}
             onClick={() =>
               onSave({
+                ...(receivable?.id ? { id: receivable.id } : {}),
                 name,
                 stage,
                 cadence,
                 amount: Number(amount.replace(/,/g, "")),
-                currency: "USD",
+                currency,
                 client: client || null,
+                // Only the fields that mean anything for this cadence are sent; the
+                // others are cleared so switching cadence can't leave a stale date
+                // still steering the forecast.
+                expected_month: isRetainer ? null : expectedMonth || null,
+                start_month: isRetainer ? startMonth || null : null,
+                end_month: isRetainer ? endMonth || null : null,
               })
             }
           >
-            {saving ? "Adding…" : "Add"}
+            {saving ? "Saving…" : editing ? "Save" : "Add"}
           </Button>
         </div>
       </div>

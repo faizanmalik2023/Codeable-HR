@@ -68,11 +68,18 @@ export function usePosition() {
     onError: (e) => toast.error(errMsg(e, "Couldn't remove the account")),
   });
 
-  const createReceivable = useMutation({
-    mutationFn: (body: Partial<Receivable> & { name: string; stage: ReceivableStage }) =>
-      adminPositionApi.createReceivable(body),
-    ...onDone("Added"),
-    onError: (e) => toast.error(errMsg(e, "Couldn't add it")),
+  // Create and update share a mutation, like saveAccount: the modal is the same form
+  // either way, and confirming an existing retainer is the whole point of editing.
+  const saveReceivable = useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: Partial<Receivable> & { name: string; stage: ReceivableStage; id?: string }) =>
+      id
+        ? adminPositionApi.updateReceivable(id, body)
+        : adminPositionApi.createReceivable(body),
+    ...onDone("Saved"),
+    onError: (e) => toast.error(errMsg(e, "Couldn't save it")),
   });
 
   const settleReceivable = useMutation({
@@ -118,7 +125,7 @@ export function usePosition() {
     assets,
     saveAccount,
     deleteAccount,
-    createReceivable,
+    saveReceivable,
     settleReceivable,
     deleteReceivable,
     createAsset,
