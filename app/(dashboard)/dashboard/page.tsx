@@ -350,7 +350,11 @@ export default function DashboardPage() {
             <SectionCard title="Pending Leaves" href="/hr/leaves" icon={ClipboardList}>
               {data.pending_leaves.slice(0, 5).map((l, i) => (
                 <div key={l.id ?? l.employee?.employee_code ?? i} className="flex items-center gap-3 border-b border-border py-2.5 last:border-0">
-                  <Avatar name={l.employee?.full_name ?? l.employee?.name} size="sm" />
+                  <Avatar
+                  name={l.employee?.full_name ?? l.employee?.name}
+                  src={l.employee?.avatar ?? undefined}
+                  size="sm"
+                />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">
                       {l.employee?.full_name ?? l.employee?.name}

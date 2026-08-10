@@ -23,6 +23,7 @@ export interface DeviceMappingUser {
   full_name: string;
   email?: string | null;
   employee_code?: string | null;
+  avatar?: string | null;
 }
 
 /** A PIN → employee mapping on a device. */

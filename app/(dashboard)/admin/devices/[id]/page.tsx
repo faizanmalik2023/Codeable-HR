@@ -120,7 +120,11 @@ export default function DeviceDetailPage() {
                   <div className="space-y-2">
                     {list.map((m) => (
                       <Card key={m.id} className="flex items-center gap-3 p-4">
-                        <Avatar name={m.user_id?.full_name} size="md" />
+                        <Avatar
+                          name={m.user_id?.full_name}
+                          src={m.user_id?.avatar ?? undefined}
+                          size="md"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium text-foreground">{m.user_id?.full_name}</p>
                           <p className="truncate text-sm text-foreground-muted">
