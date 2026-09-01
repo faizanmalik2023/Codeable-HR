@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Search, Users, ChevronRight } from "lucide-react";
+import { Search, Users, ChevronRight, ClipboardCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,15 @@ export default function HrTimePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Attendance" description="Browse an employee's attendance logs" />
+      <PageHeader
+        title="Attendance"
+        description="Browse an employee's attendance logs"
+        actions={
+          <Button variant="outline" onClick={() => router.push("/hr/time/reviews")}>
+            <ClipboardCheck className="h-4 w-4" /> Reviews
+          </Button>
+        }
+      />
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-muted" />

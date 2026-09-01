@@ -12,6 +12,15 @@ import { ApiRequestError } from "@/lib/api/client";
 export function useLogin() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const role = useAuthStore((s) => s.user?.role);
+
+  // Already signed in (persisted session) — don't show the sign-in screen. Hitting
+  // /login directly from a bookmark or a new tab should land on the dashboard.
+  React.useEffect(() => {
+    if (hydrated && isAuthenticated) router.replace(landingForRole(role));
+  }, [hydrated, isAuthenticated, role, router]);
 
   const onSuccess = React.useCallback(
     (res: { user: Parameters<typeof setSession>[0]; tokens: Parameters<typeof setSession>[1] }) => {

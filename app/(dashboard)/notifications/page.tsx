@@ -12,6 +12,7 @@ import { NOTIFICATION_FILTERS } from "@/lib/enums";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { notificationVisual, routeForNotification } from "@/lib/notifications-nav";
+import { useAuthStore } from "@/stores/auth-store";
 import { useNotifications } from "./use-notifications";
 import type { NotificationModel } from "@/types";
 
@@ -19,6 +20,7 @@ const FILTER_LABELS: Record<string, string> = { all: "All", unread: "Unread", re
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const { filter, setFilter, pagination, page, setPage, query, markRead, markAllRead } =
     useNotifications();
 
@@ -26,7 +28,7 @@ export default function NotificationsPage() {
 
   function handleClick(n: NotificationModel) {
     if (!n.is_read) markRead.mutate(n.id);
-    const route = routeForNotification(n);
+    const route = routeForNotification(n, user);
     if (route) router.push(route);
   }
 

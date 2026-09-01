@@ -7,6 +7,7 @@ import { Bell, CheckCheck, ArrowRight } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificationsApi } from "@/lib/api/notifications";
 import { notificationVisual, routeForNotification } from "@/lib/notifications-nav";
+import { useAuthStore } from "@/stores/auth-store";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SkeletonList } from "@/components/ui/skeleton";
@@ -14,6 +15,7 @@ import type { NotificationModel } from "@/types";
 
 export function NotificationBell() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -62,7 +64,7 @@ export function NotificationBell() {
 
   const handleItem = (n: NotificationModel) => {
     if (!n.is_read) markRead.mutate(n.id);
-    const route = routeForNotification(n);
+    const route = routeForNotification(n, user);
     setOpen(false);
     if (route) router.push(route);
   };
@@ -130,7 +132,7 @@ export function NotificationBell() {
               ) : (
                 items.map((n) => {
                   const { icon: Icon, className } = notificationVisual(String(n.category));
-                  const actionable = Boolean(routeForNotification(n));
+                  const actionable = Boolean(routeForNotification(n, user));
                   const unreadRow = !n.is_read;
                   return (
                     <button
