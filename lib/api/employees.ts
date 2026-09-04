@@ -208,6 +208,11 @@ export interface IncrementBody {
   effective_date: string;
 }
 
+export interface DeactivateBody {
+  reason: string;
+  effective_date: string;
+}
+
 /* ------------------------------------------------------------------ */
 /* API surface                                                         */
 /* ------------------------------------------------------------------ */
@@ -244,6 +249,6 @@ export const employeesApi = {
   increment: (id: string, body: IncrementBody) =>
     api.post<EmployeeInfo>(`/employees/${id}/increment`, body),
 
-  deactivate: (id: string) =>
-    api.post<EmployeeInfo>(`/employees/${id}/deactivate`),
+  deactivate: (id: string, body: DeactivateBody) =>
+    api.post<EmployeeInfo>(`/employees/${id}/deactivate`, body),
 };

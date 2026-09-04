@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   employeesApi,
   designationLabel,
+  type DeactivateBody,
   type IncrementBody,
   type PromoteBody,
   type UpdateEmployeeBody,
@@ -88,7 +89,7 @@ export function useEmployee(id: string) {
   });
 
   const deactivate = useMutation({
-    mutationFn: () => employeesApi.deactivate(id),
+    mutationFn: (body: DeactivateBody) => employeesApi.deactivate(id, body),
     onSuccess: () => {
       toast.success("Employee deactivated");
       invalidate();

@@ -27,8 +27,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetFooter } from "@/components/ui/sheet";
-import { ConfirmModal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/shared/page-header";
 import { QueryState } from "@/components/shared/query-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,7 +57,7 @@ const statusLabel = (s: string) =>
 const labelize = (v?: string | null) =>
   v ? v.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "—";
 
-type ActionSheet = "edit" | "promote" | "increment" | null;
+type ActionSheet = "edit" | "promote" | "increment" | "deactivate" | null;
 
 export default function EmployeeDetailPage() {
   const params = useParams<{ id: string }>();
@@ -74,7 +74,6 @@ export default function EmployeeDetailPage() {
   } = useEmployee(id);
 
   const [sheet, setSheet] = React.useState<ActionSheet>(null);
-  const [confirmDeactivate, setConfirmDeactivate] = React.useState(false);
 
   return (
     <div className="space-y-6">
@@ -137,7 +136,7 @@ export default function EmployeeDetailPage() {
                     variant="outline"
                     size="sm"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => setConfirmDeactivate(true)}
+                    onClick={() => setSheet("deactivate")}
                     disabled={employee.status === "inactive" || employee.status === "terminated"}
                   >
                     <UserX className="h-4 w-4" /> Deactivate
@@ -264,17 +263,14 @@ export default function EmployeeDetailPage() {
               }
             />
 
-            <ConfirmModal
-              open={confirmDeactivate}
-              onClose={() => setConfirmDeactivate(false)}
-              onConfirm={() =>
-                deactivate.mutate(undefined, { onSettled: () => setConfirmDeactivate(false) })
+            <DeactivateSheet
+              open={sheet === "deactivate"}
+              onClose={() => setSheet(null)}
+              employeeName={employee.full_name}
+              isPending={deactivate.isPending}
+              onSubmit={(body) =>
+                deactivate.mutate(body, { onSuccess: () => setSheet(null) })
               }
-              title="Deactivate employee?"
-              description={`${employee.full_name} will lose access and be marked inactive.`}
-              confirmLabel="Deactivate"
-              variant="destructive"
-              isLoading={deactivate.isPending}
             />
           </div>
         )}
@@ -760,6 +756,79 @@ function IncrementSheet({
         </Button>
         <Button onClick={submit} isLoading={isPending}>
           <ArrowUpCircle className="h-4 w-4" /> Apply Increment
+        </Button>
+      </SheetFooter>
+    </Sheet>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Deactivate sheet                                                    */
+/* ------------------------------------------------------------------ */
+
+const deactivateSchema = z.object({
+  reason: z.string().trim().min(1, "Reason is required"),
+  effective_date: z.string().min(1, "Please select a date"),
+});
+type DeactivateValues = z.infer<typeof deactivateSchema>;
+
+function DeactivateSheet({
+  open,
+  onClose,
+  employeeName,
+  isPending,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  employeeName: string;
+  isPending: boolean;
+  onSubmit: (body: import("@/lib/api/employees").DeactivateBody) => void;
+}) {
+  const { control, register, handleSubmit, reset, formState: { errors } } = useForm<DeactivateValues>({
+    resolver: zodResolver(deactivateSchema),
+    defaultValues: { reason: "", effective_date: "" },
+  });
+
+  React.useEffect(() => {
+    if (open) reset({ reason: "", effective_date: "" });
+  }, [open, reset]);
+
+  const submit = handleSubmit((v) =>
+    onSubmit({ reason: v.reason.trim(), effective_date: v.effective_date })
+  );
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Deactivate Employee" size="md">
+      <div className="space-y-4">
+        <p className="text-sm text-foreground-muted">
+          {employeeName} will lose access and be marked inactive. Their payroll, attendance and
+          EOD history is kept.
+        </p>
+        <div>
+          <Label className="mb-2 block" required>
+            Reason
+          </Label>
+          <Textarea
+            placeholder="e.g. Resigned — moving to another company"
+            error={errors.reason?.message}
+            {...register("reason")}
+          />
+        </div>
+        <DateField
+          control={control}
+          name="effective_date"
+          label="Effective Date"
+          required
+          error={errors.effective_date?.message}
+        />
+      </div>
+      <SheetFooter>
+        <Button variant="outline" onClick={onClose} disabled={isPending}>
+          Cancel
+        </Button>
+        <Button variant="destructive" onClick={submit} isLoading={isPending}>
+          <UserX className="h-4 w-4" /> Deactivate
         </Button>
       </SheetFooter>
     </Sheet>
