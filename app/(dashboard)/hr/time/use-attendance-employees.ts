@@ -14,6 +14,11 @@ export function useAttendanceEmployees() {
   const [debounced, setDebounced] = React.useState("");
   const [page, setPage] = React.useState(1);
 
+  // The server pages at 10, which leaves the three-column grid a third empty and
+  // pushes a company this size onto a second page for no reason. 24 fills whole
+  // rows at every breakpoint (1 / 2 / 3 columns) and fits everyone on one page.
+  const LIMIT = 24;
+
   React.useEffect(() => {
     const t = setTimeout(() => {
       setDebounced(search);
@@ -24,7 +29,8 @@ export function useAttendanceEmployees() {
 
   const query = useQuery({
     queryKey: ["hr", "attendance", "employees", debounced, page],
-    queryFn: () => hrAttendanceApi.employees({ name: debounced || undefined, page }),
+    queryFn: () =>
+      hrAttendanceApi.employees({ name: debounced || undefined, page, limit: LIMIT }),
     placeholderData: (prev) => prev,
   });
 

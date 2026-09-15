@@ -36,10 +36,15 @@ export interface AttendanceReviewModel {
 /** HR-facing attendance endpoints — browse employees, view a month's logs. */
 export const hrAttendanceApi = {
   /** Employee directory — server `name`/`department` search; array or paginated. */
-  employees: (params: { name?: string; department?: string; page?: number }) =>
+  employees: (params: { name?: string; department?: string; page?: number; limit?: number }) =>
     api.get<Paginated<HrAttendanceEmployee> | { items: HrAttendanceEmployee[] }>(
       "/attendance/employees",
-      { name: params.name, department: params.department, page: params.page }
+      {
+        name: params.name,
+        department: params.department,
+        page: params.page,
+        limit: params.limit,
+      }
     ),
 
   /** A single employee's whole-month attendance log — no pagination. */
