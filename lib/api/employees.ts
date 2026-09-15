@@ -211,6 +211,9 @@ export interface IncrementBody {
 export interface DeactivateBody {
   reason: string;
   effective_date: string;
+  /** The day the employee actually last worked. Optional — the effective date is
+   *  when the account stops working, which is often later. */
+  last_working_day?: string;
 }
 
 /* ------------------------------------------------------------------ */

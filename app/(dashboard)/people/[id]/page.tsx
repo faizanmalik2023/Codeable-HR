@@ -769,6 +769,7 @@ function IncrementSheet({
 const deactivateSchema = z.object({
   reason: z.string().trim().min(1, "Reason is required"),
   effective_date: z.string().min(1, "Please select a date"),
+  last_working_day: z.string(),
 });
 type DeactivateValues = z.infer<typeof deactivateSchema>;
 
@@ -787,15 +788,19 @@ function DeactivateSheet({
 }) {
   const { control, register, handleSubmit, reset, formState: { errors } } = useForm<DeactivateValues>({
     resolver: zodResolver(deactivateSchema),
-    defaultValues: { reason: "", effective_date: "" },
+    defaultValues: { reason: "", effective_date: "", last_working_day: "" },
   });
 
   React.useEffect(() => {
-    if (open) reset({ reason: "", effective_date: "" });
+    if (open) reset({ reason: "", effective_date: "", last_working_day: "" });
   }, [open, reset]);
 
   const submit = handleSubmit((v) =>
-    onSubmit({ reason: v.reason.trim(), effective_date: v.effective_date })
+    onSubmit({
+      reason: v.reason.trim(),
+      effective_date: v.effective_date,
+      last_working_day: v.last_working_day || undefined,
+    })
   );
 
   return (
@@ -822,6 +827,16 @@ function DeactivateSheet({
           required
           error={errors.effective_date?.message}
         />
+        <DateField
+          control={control}
+          name="last_working_day"
+          label="Last Working Day (optional)"
+          error={errors.last_working_day?.message}
+        />
+        <p className="text-xs text-foreground-subtle">
+          The effective date is when the account stops working. The last working day is
+          when they actually stopped — often earlier, and the one payroll needs.
+        </p>
       </div>
       <SheetFooter>
         <Button variant="outline" onClick={onClose} disabled={isPending}>
