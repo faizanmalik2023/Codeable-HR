@@ -14,7 +14,12 @@ import { Switch } from "@/components/ui/switch";
 import { DatePicker } from "@/components/ui/date-picker";
 import { PageHeader } from "@/components/shared/page-header";
 import { useEnums, toOptions } from "@/lib/api/enums";
-import { EMPLOYMENT_TYPE_LABELS, PERK_TYPE_LABELS, type PerkType } from "@/lib/enums";
+import {
+  EMPLOYMENT_TYPE_LABELS,
+  PERK_TYPE_LABELS,
+  WORK_SCHEDULE_LABELS,
+  type PerkType,
+} from "@/lib/enums";
 import { toWireDate, parseAmount } from "@/lib/format";
 import { uploadFile } from "@/lib/api/uploads";
 import type {
@@ -36,6 +41,7 @@ const schema = z.object({
   manager_id: z.string().optional(),
   role: z.string().min(1, "Please select a role"),
   employment_type: z.string().min(1, "Please select an employment type"),
+  work_schedule: z.string().min(1, "Please select a work schedule"),
   joined_at: z.string().optional(),
   ec_name: z.string().min(1, "Emergency contact name is required"),
   ec_phone: z.string().min(1, "Emergency contact phone is required"),
@@ -100,6 +106,10 @@ export default function AddEmployeePage() {
     ? toOptions(enums.data.employment_type, EMPLOYMENT_TYPE_LABELS)
     : Object.entries(EMPLOYMENT_TYPE_LABELS).map(([value, label]) => ({ value, label }));
 
+  const scheduleOptions = enums.data?.work_schedule?.length
+    ? toOptions(enums.data.work_schedule, WORK_SCHEDULE_LABELS)
+    : Object.entries(WORK_SCHEDULE_LABELS).map(([value, label]) => ({ value, label }));
+
   const {
     control,
     register,
@@ -110,6 +120,7 @@ export default function AddEmployeePage() {
     defaultValues: {
       full_name: "", email: "", phone: "", cnic1: "", cnic2: "", cnic3: "", dob: "",
       designation_id: "", department_id: "", manager_id: "", role: "", employment_type: "",
+      work_schedule: "full_time",
       joined_at: "", ec_name: "", ec_phone: "", ec_relation: "",
       sal_basic: "", sal_house_rent: "", sal_medical: "", sal_transport: "",
       sal_utility: "", sal_tax: "", sal_provident_fund: "", sal_insurance: "",
@@ -166,6 +177,7 @@ export default function AddEmployeePage() {
         department_id: v.department_id,
         role: v.role,
         employment_type: v.employment_type,
+        work_schedule: v.work_schedule,
         joined_at: v.joined_at || undefined,
         emergency_contact: {
           name: v.ec_name,
@@ -222,6 +234,10 @@ export default function AddEmployeePage() {
           options={ROLE_OPTIONS} placeholder="Select a role" error={errors.role?.message} />
         <SelectField control={control} name="employment_type" label="Employment Type" required
           options={employmentOptions} placeholder="Select a type" error={errors.employment_type?.message} />
+        {/* Drives attendance policy, not payroll: a part-timer has no fixed start (never
+            marked late) and is scored against their own shorter day and week. */}
+        <SelectField control={control} name="work_schedule" label="Work Schedule" required
+          options={scheduleOptions} placeholder="Select a schedule" error={errors.work_schedule?.message} />
         <DateField control={control} name="joined_at" label="Date of Joining" />
       </SectionCard>
 

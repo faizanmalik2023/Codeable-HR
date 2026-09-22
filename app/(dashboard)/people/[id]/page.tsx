@@ -37,6 +37,7 @@ import {
   EMPLOYMENT_TYPE_LABELS,
   ROLE_LABELS,
   SALARY_REVISION_LABELS,
+  WORK_SCHEDULE_LABELS,
 } from "@/lib/enums";
 import { formatMoney, formatOrdinalDate, parseAmount, toWireDate } from "@/lib/format";
 import { uploadFile } from "@/lib/api/uploads";
@@ -170,6 +171,21 @@ export default function EmployeeDetailPage() {
                       employee.employment?.employment_type as keyof typeof EMPLOYMENT_TYPE_LABELS
                     ] ?? labelize(employee.employment?.employment_type)
                   }
+                />
+                <Field
+                  label="Work Schedule"
+                  value={(() => {
+                    const stored = employee.employment?.work_schedule;
+                    const effective = employee.employment?.effective_work_schedule ?? stored;
+                    const label =
+                      WORK_SCHEDULE_LABELS[effective as keyof typeof WORK_SCHEDULE_LABELS] ??
+                      labelize(effective);
+                    // Attendance derives part-time from the employment type too, so the
+                    // effective answer can differ from the stored field. Say which it is
+                    // rather than showing a number nobody can trace back to a setting.
+                    const derived = Boolean(stored && effective && effective !== stored);
+                    return derived ? `${label} (from employment type)` : label;
+                  })()}
                 />
                 <Field label="Date of Joining" value={dateOrDash(employee.employment?.joined_at)} />
                 <Field label="Manager" value={employee.manager?.full_name} />
@@ -469,6 +485,7 @@ const editSchema = z.object({
   gender: z.string().optional(),
   role: z.string().optional(),
   employment_type: z.string().optional(),
+  work_schedule: z.string().optional(),
   department_id: z.string().optional(),
   designation_id: z.string().optional(),
   manager_id: z.string().optional(),
@@ -513,6 +530,9 @@ function EditEmployeeSheet({
   const paymentOptions = toOptions(enums.data?.payment_method);
   const roleOptions = toOptions(enums.data?.roles, ROLE_LABELS);
   const employmentOptions = toOptions(enums.data?.employment_type, EMPLOYMENT_TYPE_LABELS);
+  const scheduleOptions = enums.data?.work_schedule?.length
+    ? toOptions(enums.data.work_schedule, WORK_SCHEDULE_LABELS)
+    : Object.entries(WORK_SCHEDULE_LABELS).map(([value, label]) => ({ value, label }));
 
   const { control, register, handleSubmit, reset, formState: { errors } } = useForm<EditValues>({
     resolver: zodResolver(editSchema),
@@ -529,6 +549,7 @@ function EditEmployeeSheet({
         gender: employee.gender ?? "",
         role: (employee.role as string) ?? "",
         employment_type: (employee.employment?.employment_type as string) ?? "",
+        work_schedule: (employee.employment?.work_schedule as string) ?? "",
         department_id: employee.department?.id ?? "",
         designation_id: employee.designation?.id ?? "",
         manager_id: employee.manager?.id ?? "",
@@ -554,6 +575,7 @@ function EditEmployeeSheet({
       gender: v.gender || undefined,
       role: v.role || undefined,
       employment_type: v.employment_type || undefined,
+      work_schedule: v.work_schedule || undefined,
       department_id: v.department_id || undefined,
       designation_id: v.designation_id || undefined,
       manager_id: v.manager_id || undefined,
@@ -581,6 +603,23 @@ function EditEmployeeSheet({
           <SelectField control={control} name="gender" label="Gender" options={genderOptions} />
           <SelectField control={control} name="role" label="Role" options={roleOptions} />
           <SelectField control={control} name="employment_type" label="Employment Type" options={employmentOptions} />
+          <div>
+            <SelectField control={control} name="work_schedule" label="Work Schedule" options={scheduleOptions} />
+            {employee.employment?.effective_work_schedule &&
+              employee.employment?.work_schedule &&
+              employee.employment.effective_work_schedule !==
+                employee.employment.work_schedule && (
+                <p className="mt-1.5 text-xs text-foreground-subtle">
+                  Attendance already treats this employee as{" "}
+                  {WORK_SCHEDULE_LABELS[
+                    employee.employment
+                      .effective_work_schedule as keyof typeof WORK_SCHEDULE_LABELS
+                  ] ?? labelize(employee.employment.effective_work_schedule)}{" "}
+                  because their employment type says so. Changing this field is only for
+                  hours — it also changes increment banding.
+                </p>
+              )}
+          </div>
           <SelectField control={control} name="department_id" label="Department" options={departmentOptions} />
           <SelectField control={control} name="designation_id" label="Designation" options={designationOptions} />
           <SelectField control={control} name="manager_id" label="Manager" options={managerOptions} />

@@ -271,6 +271,15 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   freelancer: "Freelancer",
 };
 
+/** Hours-per-week axis, independent of `EmploymentType` (an intern may be either).
+ *  Attendance policy keys off THIS: a part-timer has no fixed start, so they are
+ *  never marked late, and their day/week is scored against their own shorter hours. */
+export type WorkSchedule = "full_time" | "part_time";
+export const WORK_SCHEDULE_LABELS: Record<WorkSchedule, string> = {
+  full_time: "Full-time",
+  part_time: "Part-time",
+};
+
 export type SalaryRevisionType = "initial" | "increment" | "promotion";
 export const SALARY_REVISION_LABELS: Record<SalaryRevisionType, string> = {
   initial: "Initial",

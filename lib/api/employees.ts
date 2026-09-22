@@ -4,6 +4,7 @@ import type {
   PerkType,
   SalaryRevisionType,
   UserRole,
+  WorkSchedule,
 } from "@/lib/enums";
 
 /* ------------------------------------------------------------------ */
@@ -87,6 +88,11 @@ export interface EmployeeInfo {
   department?: NamedRef | null;
   employment?: {
     employment_type?: EmploymentType | string | null;
+    /** The STORED field — this is what the edit form edits and sends back. */
+    work_schedule?: WorkSchedule | string | null;
+    /** What attendance actually applies, derived server-side from `employment_type`
+     *  and `work_schedule` together. Read-only: never send it back. */
+    effective_work_schedule?: WorkSchedule | string | null;
     joined_at?: string | null;
   } | null;
   dob?: string | null;
@@ -157,6 +163,7 @@ export interface CreateEmployeeBody {
   department_id: string;
   role: UserRole | string;
   employment_type: EmploymentType | string;
+  work_schedule?: WorkSchedule | string;
   joined_at?: string | null;
   gender?: string | null;
   personal_email?: string | null;
@@ -183,6 +190,7 @@ export interface UpdateEmployeeBody {
   cnic?: string;
   role?: UserRole | string;
   employment_type?: EmploymentType | string;
+  work_schedule?: WorkSchedule | string;
   gender?: string | null;
   personal_email?: string | null;
   bank_name?: string | null;
