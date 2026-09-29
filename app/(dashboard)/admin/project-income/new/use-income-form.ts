@@ -25,7 +25,8 @@ export function useIncomeForm() {
     enabled: !!id,
   });
 
-  const projects = useProjectOptions();
+  // Income can land after a project wraps up, so list every non-archived project.
+  const projects = useProjectOptions({ all: true });
 
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: adminIncomeKeys.all });
